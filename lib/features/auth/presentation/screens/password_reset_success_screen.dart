@@ -6,21 +6,15 @@ import '../../../../core/router/app_router.dart';
 import '../widgets/fade_up_animation.dart';
 import '../widgets/gradient_button.dart';
 
-class SuccessScreen extends StatelessWidget {
-  const SuccessScreen({super.key});
+class PasswordResetSuccessScreen extends StatefulWidget {
+  const PasswordResetSuccessScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return _SuccessScreenContent();
-  }
+  State<PasswordResetSuccessScreen> createState() =>
+      _PasswordResetSuccessScreenState();
 }
 
-class _SuccessScreenContent extends StatefulWidget {
-  @override
-  State<_SuccessScreenContent> createState() => _SuccessScreenState();
-}
-
-class _SuccessScreenState extends State<_SuccessScreenContent>
+class _PasswordResetSuccessScreenState extends State<PasswordResetSuccessScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -33,20 +27,15 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
       duration: const Duration(milliseconds: 600),
     );
 
-    // walli-success-pop: Scale 0 → 1.18 → 1 with bounce easing
     _scaleAnimation = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(
-          begin: 0.0,
-          end: 1.18,
-        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween(begin: 0.0, end: 1.18)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 60,
       ),
       TweenSequenceItem(
-        tween: Tween(
-          begin: 1.18,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.bounceOut)),
+        tween: Tween(begin: 1.18, end: 1.0)
+            .chain(CurveTween(curve: Curves.bounceOut)),
         weight: 40,
       ),
     ]).animate(_animationController);
@@ -75,7 +64,7 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Animated success checkmark
+                  // Animated icon
                   FadeUpAnimation(
                     delayInMilliseconds: 50,
                     child: ScaleTransition(
@@ -95,8 +84,8 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                           ],
                         ),
                         child: const Icon(
-                          Icons.check_rounded,
-                          size: 44,
+                          Icons.lock_open_rounded,
+                          size: 38,
                           color: Colors.white,
                         ),
                       ),
@@ -104,68 +93,29 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                   ),
                   const SizedBox(height: 36),
 
-                  // Headers
+                  // Title
                   FadeUpAnimation(
                     delayInMilliseconds: 150,
                     child: Text(
-                      'Account Verified!',
+                      'Password Reset!',
                       style: AppTextStyles.heading1,
                       textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // Subtitle
                   FadeUpAnimation(
                     delayInMilliseconds: 200,
                     child: Text(
-                      'Your Walli account is ready.',
+                      'Your password has been updated successfully.\nYou can now log in with your new password.',
                       style: AppTextStyles.subtitle,
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 28),
-
-                  // Balance Card
-                  FadeUpAnimation(
-                    delayInMilliseconds: 250,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppColors.success.withOpacity(0.3),
-                          width: 2,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.check_circle_outline,
-                            size: 20,
-                            color: AppColors.success,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Balance: 0 VND',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.success,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
                   const SizedBox(height: 48),
 
-                  // Button to Go to Login
+                  // Go to Login button
                   FadeUpAnimation(
                     delayInMilliseconds: 350,
                     child: GradientButton(
@@ -173,25 +123,7 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                       text: 'Go to Login',
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Back to OTP screen
-                  FadeUpAnimation(
-                    delayInMilliseconds: 400,
-                    child: TextButton(
-                      onPressed: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go(AppRouter.register);
-                        }
-                      },
-                      child: Text(
-                        'Back to OTP screen',
-                        style: AppTextStyles.linkText,
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),

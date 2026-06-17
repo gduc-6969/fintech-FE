@@ -1,8 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../widgets/auth_layout.dart';
 import '../widgets/fade_up_animation.dart';
@@ -21,7 +23,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _isPasswordObscured = true;
+  bool _isLoading = false;
   String? _serverError;
+  bool _isWrongCredentials = false;
   String? _otpVerificationRequiredError;
 
   @override
@@ -31,33 +35,42 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     setState(() {
       _serverError = null;
+      _isWrongCredentials = false;
       _otpVerificationRequiredError = null;
     });
 
-    if (_formKey.currentState!.validate()) {
-      final phone = _phoneController.text.trim();
-      final password = _passwordController.text;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-      if (phone == '0900000000') {
-        setState(() {
-          _otpVerificationRequiredError =
-              'Account is not yet verified. Please complete OTP verification.';
-        });
-      } else if (phone == '0901111111') {
-        setState(() {
-          _serverError =
-              'Account is temporarily locked due to too many failed attempts.';
-        });
-      } else if (password != 'Admin@123') {
-        setState(() {
-          _serverError = 'Incorrect phone number or password';
-        });
-      } else {
-        context.go(AppRouter.wallet);
-      }
+    setState(() => _isLoading = true);
+
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+
+    try {
+      await ApiService.login(phoneNumber: phone, password: password);
+      if (!mounted) return;
+      context.go(AppRouter.wallet);
+    } on DioException catch (e) {
+      final message = ApiService.parseDioError(e);
+      final lowerMsg = message.toLowerCase();
+      setState(() {
+        _isLoading = false;
+        if (e.response?.statusCode == 401 ||
+            lowerMsg.contains('incorrect') ||
+            lowerMsg.contains('invalid') ||
+            lowerMsg.contains('wrong') ||
+            lowerMsg.contains('password') ||
+            lowerMsg.contains('credentials')) {
+          _isWrongCredentials = true;
+        } else {
+          _serverError = message;
+        }
+      });
     }
   }
 
@@ -122,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.phone,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: const InputDecoration(
-                        hintText: 'e.g. 0901234567 or +84901234567',
+                        hintText: '0xxxxxxxxx or +84xxxxxxxxx',
                       ),
                       validator: Validators.validatePhone,
                     ),
@@ -169,10 +182,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              // Forgot Password Link
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => context.push(AppRouter.resetPassword),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 0),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Forgot Password?',
+                    style: AppTextStyles.linkText,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
 
-              // Incorrect phone/password local warning
-              if (_serverError == 'Incorrect phone number or password')
+              // Incorrect phone/password inline warning
+              if (_isWrongCredentials)
                 FadeUpAnimation(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 12.0),
@@ -192,7 +221,10 @@ class _LoginScreenState extends State<LoginScreen> {
               // Login Button
               FadeUpAnimation(
                 delayInMilliseconds: 210,
-                child: GradientButton(onPressed: _handleLogin, text: 'Login'),
+                child: GradientButton(
+                  onPressed: _isLoading ? null : _handleLogin,
+                  text: _isLoading ? 'Logging in...' : 'Login',
+                ),
               ),
 
               // Account Status/Error Banners
@@ -218,8 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-              if (_serverError != null &&
-                  _serverError != 'Incorrect phone number or password')
+              if (_serverError != null)
                 FadeUpAnimation(
                   child: Container(
                     margin: const EdgeInsets.only(top: 16),

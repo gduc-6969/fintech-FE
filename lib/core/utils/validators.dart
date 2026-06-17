@@ -9,11 +9,11 @@ class Validators {
     if (value == null || value.trim().isEmpty) {
       return 'Phone number is required';
     }
-    
+
     final phone = value.trim();
     // Regex for 0 + 9 digits or +84 + 9 digits
     final phoneRegex = RegExp(r'^(0\d{9}|\+84\d{9})$');
-    
+
     if (!phoneRegex.hasMatch(phone)) {
       return 'Invalid phone number format';
     }
@@ -53,7 +53,10 @@ class Validators {
     return null;
   }
 
-  static String? validateConfirmPassword(String? password, String? confirmPassword) {
+  static String? validateConfirmPassword(
+    String? password,
+    String? confirmPassword,
+  ) {
     if (confirmPassword == null || confirmPassword.isEmpty) {
       return 'Confirm password is required';
     }
@@ -79,7 +82,12 @@ class Validators {
     if (value == null || value.trim().isEmpty) {
       return 'Full name is required';
     }
-    if (value.trim().split(' ').length < 2) {
+    final fullName = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final nameRegex = RegExp(r"^[\p{L}][\p{L}\s'.-]*$", unicode: true);
+    if (!nameRegex.hasMatch(fullName)) {
+      return 'Full name can only contain letters and spaces';
+    }
+    if (fullName.split(' ').length < 2) {
       return 'Please enter your full name (at least first and last name)';
     }
     return null;

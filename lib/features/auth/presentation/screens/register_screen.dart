@@ -1,8 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../widgets/auth_layout.dart';
 import '../widgets/fade_up_animation.dart';
@@ -10,7 +12,9 @@ import '../widgets/gradient_button.dart';
 import '../widgets/password_strength_bar.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final RegisterPayload? initialData;
+
+  const RegisterScreen({super.key, this.initialData});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -19,10 +23,10 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _emailController = TextEditingController();
 
   bool _isPasswordObscured = true;
   bool _isConfirmObscured = true;
@@ -32,12 +36,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _hasUppercase = false;
   bool _hasSpecialChar = false;
 
+  String? _emailServerError;
   String? _phoneServerError;
 
   @override
   void initState() {
     super.initState();
+    final initialData = widget.initialData;
+    if (initialData != null) {
+      _fullNameController.text = initialData.fullName;
+      _emailController.text = initialData.email;
+      _phoneController.text = initialData.phoneNumber;
+      _passwordController.text = initialData.password;
+      _confirmPasswordController.text = initialData.password;
+      _emailServerError = initialData.emailServerError;
+      _phoneServerError = initialData.phoneServerError;
+
+      if (_emailServerError != null || _phoneServerError != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _formKey.currentState?.validate();
+        });
+      }
+    }
     _passwordController.addListener(_validatePasswordCriteria);
+    _validatePasswordCriteria();
   }
 
   @override
@@ -69,23 +91,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return strength;
   }
 
-  void _handleRegister() {
+  Future<void> _handleRegister() async {
     setState(() {
+      _emailServerError = null;
       _phoneServerError = null;
     });
 
-    if (_formKey.currentState!.validate()) {
-      final phone = _phoneController.text.trim();
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-      if (phone == '0901234567') {
-        setState(() {
-          _phoneServerError = 'This phone number is already registered';
-        });
+    final payload = RegisterPayload(
+      fullName: _fullNameController.text.trim(),
+      email: _emailController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    try {
+      await ApiService.precheckRegistration(
+        email: payload.email,
+        fullName: payload.fullName,
+        phoneNumber: payload.phoneNumber,
+        password: payload.password,
+      );
+      await ApiService.requestOtp(
+        email: payload.email,
+        fullName: payload.fullName,
+      );
+      if (!mounted) {
         return;
       }
-
-      context.push(AppRouter.otpVerify, extra: phone);
+      context.push(AppRouter.otpVerify, extra: payload);
+    } on DioException catch (e) {
+      final serverError = ApiService.parseDioError(e);
+      setState(() {
+        if (_isEmailError(serverError)) {
+          _emailServerError = serverError;
+        } else if (_isPhoneError(serverError)) {
+          _phoneServerError = serverError;
+        } else {
+          _emailServerError = serverError;
+        }
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _formKey.currentState?.validate();
+      });
     }
+  }
+
+  bool _isEmailError(String error) {
+    return error.toLowerCase().contains('email');
+  }
+
+  bool _isPhoneError(String error) {
+    final lowerError = error.toLowerCase();
+    return lowerError.contains('phone') || lowerError.contains('number');
   }
 
   Widget _buildCriteriaItem(String label, bool isValid) {
@@ -144,7 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   'Fill in your details',
                   style: AppTextStyles.subtitle.copyWith(
-                    color: AppColors.textWhite.withOpacity(0.8),
+                    color: AppColors.textWhite.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -169,6 +230,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _fullNameController,
+                      keyboardType: TextInputType.text,
+                      textCapitalization: TextCapitalization.none,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: const InputDecoration(
                         hintText: 'Enter your full name',
@@ -180,9 +243,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Phone
+              // Email
               FadeUpAnimation(
                 delayInMilliseconds: 100,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Email *', style: AppTextStyles.label),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                      decoration: const InputDecoration(
+                        hintText: 'Enter your email',
+                      ),
+                      onChanged: (_) {
+                        if (_emailServerError != null) {
+                          setState(() => _emailServerError = null);
+                        }
+                      },
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Email is required';
+                        }
+                        final localErr = Validators.validateEmail(val);
+                        if (localErr != null) return localErr;
+                        return _emailServerError;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Phone
+              FadeUpAnimation(
+                delayInMilliseconds: 150,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -195,6 +292,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       decoration: const InputDecoration(
                         hintText: '0xxxxxxxxx or +84xxxxxxxxx',
                       ),
+                      onChanged: (_) {
+                        if (_phoneServerError != null) {
+                          setState(() => _phoneServerError = null);
+                        }
+                      },
                       validator: (val) {
                         final localErr = Validators.validatePhone(val);
                         if (localErr != null) return localErr;

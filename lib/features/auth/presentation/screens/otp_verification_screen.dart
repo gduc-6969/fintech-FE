@@ -1,19 +1,21 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pinput/pinput.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/services/api_service.dart';
 import '../widgets/auth_layout.dart';
 import '../widgets/fade_up_animation.dart';
 import '../widgets/gradient_button.dart';
 import '../widgets/otp_countdown_timer.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
-  final String phoneNumber;
+  final RegisterPayload registerData;
 
-  const OtpVerificationScreen({super.key, required this.phoneNumber});
+  const OtpVerificationScreen({super.key, required this.registerData});
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -34,23 +36,36 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.dispose();
   }
 
-  void _handleResend() {
+  Future<void> _handleResend() async {
     setState(() {
       _errorMessage = null;
       _attemptsRemaining = 5;
       _isExpired = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('OTP code has been resent!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    try {
+      await ApiService.requestOtp(
+        email: widget.registerData.email,
+        fullName: widget.registerData.fullName,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('OTP code has been resent!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } on DioException catch (e) {
+      setState(() {
+        _errorMessage = ApiService.parseDioError(e);
+      });
+    }
   }
 
-  void _handleVerify() {
-    final code = _otpController.text;
+  Future<void> _handleVerify() async {
+    final code = _otpController.text.trim();
 
     if (code.length < 6) {
       setState(() {
@@ -59,21 +74,50 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       return;
     }
 
-    if (code == '111111') {
+    try {
+      await ApiService.register(
+        email: widget.registerData.email,
+        fullName: widget.registerData.fullName,
+        phoneNumber: widget.registerData.phoneNumber,
+        password: widget.registerData.password,
+        verificationCode: code,
+      );
+      if (!mounted) {
+        return;
+      }
       context.go(AppRouter.success);
-    } else {
+    } on DioException catch (e) {
+      final errorMessage = ApiService.parseDioError(e);
+      if (_isEmailError(errorMessage) || _isPhoneError(errorMessage)) {
+        if (!mounted) {
+          return;
+        }
+        context.go(
+          AppRouter.register,
+          extra: widget.registerData.copyWith(
+            emailServerError: _isEmailError(errorMessage) ? errorMessage : null,
+            phoneServerError: _isPhoneError(errorMessage) ? errorMessage : null,
+          ),
+        );
+        return;
+      }
+
       setState(() {
-        if (_attemptsRemaining > 1) {
+        _errorMessage = errorMessage;
+        if (_attemptsRemaining > 0) {
           _attemptsRemaining--;
-          _errorMessage = 'Incorrect verification code. Please try again.';
-          _otpController.clear();
-        } else {
-          _attemptsRemaining = 0;
-          _errorMessage =
-              'Maximum attempts reached. Please request a new code.';
         }
       });
     }
+  }
+
+  bool _isEmailError(String error) {
+    return error.toLowerCase().contains('email');
+  }
+
+  bool _isPhoneError(String error) {
+    final lowerError = error.toLowerCase();
+    return lowerError.contains('phone') || lowerError.contains('number');
   }
 
   @override
@@ -149,16 +193,16 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               children: [
                 const SizedBox(height: 16),
                 Text(
-                  'Verify Phone',
+                  'Verify Account',
                   style: AppTextStyles.heading1.copyWith(
                     color: AppColors.textWhite,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'We sent a code to ${widget.phoneNumber}',
+                  'We sent a code to ${widget.registerData.email}',
                   style: AppTextStyles.subtitle.copyWith(
-                    color: AppColors.textWhite.withOpacity(0.8),
+                    color: AppColors.textWhite.withValues(alpha: 0.8),
                   ),
                 ),
               ],

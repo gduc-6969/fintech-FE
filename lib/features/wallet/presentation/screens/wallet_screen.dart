@@ -1,183 +1,977 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/services/api_service.dart';
 
-class WalletScreen extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Data models (mock)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum _TxType { deposit, withdraw, transfer }
+enum _TxStatus { success, pending, failed }
+enum _TxState { loaded, loading, error, empty }
+
+class _MockBank {
+  final String code;
+  final String name;
+  final String maskedAccount;
+  final Color color;
+  const _MockBank(this.code, this.name, this.maskedAccount, this.color);
+}
+
+class _MockTx {
+  final _TxType type;
+  final String label;
+  final String date;
+  final double amount;
+  final _TxStatus status;
+  const _MockTx(this.type, this.label, this.date, this.amount, this.status);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WalletScreen — entry point
+// ─────────────────────────────────────────────────────────────────────────────
+
+class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
+
+  @override
+  State<WalletScreen> createState() => _WalletScreenState();
+}
+
+class _WalletScreenState extends State<WalletScreen> {
+  int _activeNavIndex = 0;
+  bool _balanceHidden = false;
+  bool _isLoggingOut = false;
+  _TxState _txState = _TxState.loading;
+
+  String _userName = 'Loading...';
+  double? _balance;
+  bool _isLoadingBalance = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _userName = ApiService.currentUserFullName ?? 'User';
+    _fetchWallet();
+    _fetchTransactions();
+  }
+
+  Future<void> _fetchTransactions() async {
+    try {
+      final txs = await ApiService.getTransactions();
+      if (mounted) {
+        if (txs.isEmpty) {
+          setState(() => _txState = _TxState.empty);
+        } else {
+          setState(() {
+            _transactions = txs.map((tx) {
+              final typeStr = (tx['type'] as String?)?.toUpperCase() ?? 'DEPOSIT';
+              final statusStr = (tx['status'] as String?)?.toUpperCase() ?? 'SUCCESS';
+              
+              _TxType type = _TxType.deposit;
+              if (typeStr == 'WITHDRAW' || typeStr == 'WITHDRAWAL') type = _TxType.withdraw;
+              else if (typeStr == 'TRANSFER') type = _TxType.transfer;
+              
+              _TxStatus status = _TxStatus.success;
+              if (statusStr == 'PENDING') status = _TxStatus.pending;
+              else if (statusStr == 'FAILED') status = _TxStatus.failed;
+
+              final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+              final dateStr = tx['createdAt'] as String? ?? '';
+              
+              String formattedDate = dateStr;
+              try {
+                if (dateStr.length >= 10) {
+                  final dt = DateTime.parse(dateStr).toLocal();
+                  final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                  formattedDate = '${months[dt.month - 1]} ${dt.day}';
+                  
+                  final now = DateTime.now();
+                  if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+                    formattedDate = 'Today';
+                  } else if (dt.year == now.year && dt.month == now.month && dt.day == now.day - 1) {
+                    formattedDate = 'Yesterday';
+                  }
+                }
+              } catch (_) {}
+
+              // Use typeStr for label fallback if referenceCode is not clean
+              String label = typeStr;
+              if (type == _TxType.deposit) label = 'Deposit';
+              else if (type == _TxType.withdraw) label = 'Withdraw';
+              else if (type == _TxType.transfer) label = 'Transfer';
+
+              return _MockTx(type, label, formattedDate, amount, status);
+            }).toList();
+            _txState = _TxState.loaded;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _txState = _TxState.error);
+    }
+  }
+
+
+  Future<void> _fetchWallet() async {
+    try {
+      final wallet = await ApiService.getWallet();
+      if (mounted) {
+        setState(() {
+          _balance = (wallet['availableBalance'] as num?)?.toDouble() ?? 0.0;
+          _isLoadingBalance = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _balance = 0.0; // fallback or handle error
+          _isLoadingBalance = false;
+        });
+      }
+    }
+  }
+
+  String _formatCurrency(double value) {
+    final str = value.toInt().toString();
+    var result = '';
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) {
+        result += ',';
+      }
+      result += str[i];
+    }
+    return '$result ₫';
+  }
+
+  // ── Mock data ──
+  final List<_MockBank> _banks = const [
+    _MockBank('VCB', 'Vietcombank', '···· 9012', Color(0xFF007B40)),
+    _MockBank('TCB', 'Techcombank', '···· 3341', Color(0xFFCC0000)),
+  ];
+
+  List<_MockTx> _transactions = [];
+
+  String get _greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  Future<void> _handleLogout() async {
+    if (_isLoggingOut) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout?'),
+        content: const Text('Do you want to logout from this account?'),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(color: AppColors.border),
+                  ),
+                  child: Text('Cancel', style: TextStyle(color: AppColors.textPrimary)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Logout', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _isLoggingOut = true);
+    try {
+      await ApiService.logout();
+      if (mounted) context.go(AppRouter.login);
+    } catch (_) {
+      if (mounted) setState(() => _isLoggingOut = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('My Wallet', style: TextStyle(color: Colors.white)),
-        backgroundColor: AppColors.primary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              // Sign out and go back to Login
-              context.go(AppRouter.login);
-            },
+      backgroundColor: AppColors.surface,
+      body: Column(
+        children: [
+          // ── Scrollable body ──
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                // ── Section 1 + 2: Header + Balance Card (one Stack) ──
+                SliverToBoxAdapter(child: _buildHeaderSection(context)),
+                // ── Section 3: Quick Actions ──
+                SliverToBoxAdapter(child: _buildQuickActions()),
+                // ── Section 4: Linked Banks ──
+                SliverToBoxAdapter(child: _buildLinkedBanks()),
+                // ── Section 5: Recent Transactions ──
+                SliverToBoxAdapter(child: _buildRecentTransactions()),
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              ],
+            ),
           ),
+          // ── Bottom Nav Bar ──
+          _buildBottomNav(),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              Text('Welcome Back!', style: AppTextStyles.heading1),
-              const SizedBox(height: 8),
-              Text(
-                'Here is your wallet overview',
-                style: AppTextStyles.subtitle,
-              ),
-              const SizedBox(height: 32),
+    );
+  }
 
-              // Wallet Card
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, Color(0xFF2E3B55)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+  // ─────────────────────────────────────────────────────────────────────────
+  // Section 1 + 2 — Header + Balance Card in a single Stack
+  // (keeps card always on top of the header gradient)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildHeaderSection(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+    // The gradient header covers the greeting area + a portion the card overlaps into.
+    const double greetingAreaH = 92.0; // muted text + name row + vertical padding
+    const double overlapIntoHeader = 56.0; // how much of the card sits inside the header
+    final double headerH = topPad + greetingAreaH + overlapIntoHeader;
+
+    return Column(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // ── Background gradient (header) ──
+            Container(
+              height: headerH,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.deepNavy, AppColors.midNavy],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ),
+              child: Stack(
+                children: [
+                  // Decorative indigo glow orb
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      width: 130,
+                      height: 130,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.indigo.withOpacity(0.22),
+                      ),
+                    ),
+                  ),
+                  // Greeting row
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(20, topPad + 20, 16, 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Total Balance',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _greeting,
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 13,
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$_userName 👋',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ),
-                        const Icon(
-                          Icons.account_balance_wallet_outlined,
-                          color: Colors.white,
-                          size: 24,
+                        const SizedBox(width: 12),
+                        Row(
+                          children: [
+                            _frostedIconButton(Icons.notifications_none_rounded, onTap: () {}),
+                            const SizedBox(width: 8),
+                            _frostedIconButton(
+                              _isLoggingOut ? Icons.hourglass_empty : Icons.logout_rounded,
+                              onTap: _isLoggingOut ? null : _handleLogout,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      '0 VND',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Account status: Active',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 40),
+            ),
 
-              Text(
-                'Quick Actions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
+            // ── Balance Card — rendered LAST in the Stack = always on top ──
+            Positioned(
+              // Start card `overlapIntoHeader` px above the bottom of the header
+              top: headerH - overlapIntoHeader,
+              left: 16,
+              right: 16,
+              child: _buildBalanceCard(),
+            ),
+          ],
+        ),
+        // Spacer so the scroll content below starts below the card bottom.
+        // Card starts at (headerH - overlapIntoHeader) from top of Stack.
+        // We need extra space = card height - overlapIntoHeader.
+        // The card has: padding 24*2 + label 18 + gap 14 + amount 48 + gap 20 + status 18 = ~166px
+        const SizedBox(height: 130), // ≈ cardHeight - overlapIntoHeader + small gap
+      ],
+    );
+  }
+
+  Widget _frostedIconButton(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withOpacity(0.12),
+          border: Border.all(color: Colors.white.withOpacity(0.18)),
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Balance Card content widget (used by _buildHeaderSection)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildBalanceCard() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF0F2744)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.deepNavy.withOpacity(0.45),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Row 1: Label + icons
+              Row(
+                children: [
+                  Text(
+                    'AVAILABLE BALANCE',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                      color: Colors.white.withOpacity(0.55),
+                    ),
+                  ),
+                  const Spacer(),
+                  _cardIconBtn(
+                    _balanceHidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    onTap: () => setState(() => _balanceHidden = !_balanceHidden),
+                  ),
+                  const SizedBox(width: 6),
+                  _cardIconBtn(Icons.refresh_rounded, onTap: () {}),
+                ],
               ),
-              const SizedBox(height: 16),
-
-              // Grid of Mock Actions
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.5,
-                  children: [
-                    _buildActionCard(context, 'Send Money', Icons.send_rounded),
-                    _buildActionCard(
-                      context,
-                      'Top Up',
-                      Icons.add_circle_outline,
+              const SizedBox(height: 14),
+              // Row 2: Amount
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: _balanceHidden
+                    ? Text(
+                        '•••••••••',
+                        key: const ValueKey('hidden'),
+                        style: GoogleFonts.dmSans(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 6,
+                        ),
+                      )
+                    : Text(
+                        _isLoadingBalance ? '...' : _formatCurrency(_balance ?? 0),
+                        key: const ValueKey('shown'),
+                        style: GoogleFonts.dmSans(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 20),
+              // Row 3: Status + masked ID
+              Row(
+                children: [
+                  // Green dot + ACTIVE
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.success,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.success.withOpacity(0.6),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
-                    _buildActionCard(
-                      context,
-                      'Transactions',
-                      Icons.history_rounded,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'ACTIVE',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.success,
+                      letterSpacing: 1.1,
                     ),
-                    _buildActionCard(
-                      context,
-                      'Settings',
-                      Icons.settings_rounded,
+                  ),
+                  const Spacer(),
+                  Text(
+                    'WLLI •••• 2024',
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.55),
+                      letterSpacing: 1.5,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
+          ),
+        );
+  }
+
+  Widget _cardIconBtn(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Icon(icon, color: Colors.white.withOpacity(0.55), size: 20),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Section 3 — Quick Actions
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildQuickActions() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+          child: Row(
+            children: [
+              _actionButton(Icons.south_west_rounded, 'Deposit', const Color(0xFFDCFCE7), AppColors.success),
+              _actionButton(Icons.north_east_rounded, 'Withdraw', const Color(0xFFFEF3C7), const Color(0xFFF59E0B)),
+              _actionButton(Icons.swap_horiz_rounded, 'Transfer', const Color(0xFFDBEAFE), const Color(0xFF3B82F6)),
+              _actionButton(Icons.access_time_rounded, 'History', const Color(0xFFEDE9FE), const Color(0xFF8B5CF6)),
+            ],
+          ),
+        ),
+      );
+  }
+
+  Widget _actionButton(IconData icon, String label, Color bgColor, Color iconColor) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$label tapped'), duration: const Duration(seconds: 1)),
+          );
+        },
+        child: Column(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: bgColor),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Section 4 — Linked Banks
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildLinkedBanks() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section header
+            Row(
+              children: [
+                Text('Linked Banks', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {},
+                  child: Row(
+                    children: [
+                      Text('Manage', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.indigo)),
+                      const Icon(Icons.chevron_right, size: 18, color: AppColors.indigo),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Horizontal scroll row
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ..._banks.map((b) => _bankCard(b)),
+                  _addBankTile(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+  }
+
+  Widget _bankCard(_MockBank bank) {
+    return Container(
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: bank.color, borderRadius: BorderRadius.circular(8)),
+            alignment: Alignment.center,
+            child: Text(bank.code, style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(bank.name, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              Text(bank.maskedAccount, style: GoogleFonts.robotoMono(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 1)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _addBankTile() {
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border, style: BorderStyle.solid, width: 1.5),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.add_rounded, size: 22, color: AppColors.textSecondary),
+            const SizedBox(height: 4),
+            Text('Add', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Section 5 — Recent Transactions
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildRecentTransactions() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                Text('Recent Transactions', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {},
+                  child: Row(
+                    children: [
+                      Text('See all', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.indigo)),
+                      const Icon(Icons.chevron_right, size: 18, color: AppColors.indigo),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const SizedBox(height: 12),
+            // Content based on state
+            _buildTxContent(),
+          ],
+        ),
+      );
+  }
+
+  Widget _buildTxContent() {
+    switch (_txState) {
+      case _TxState.loaded:
+        return Column(children: _transactions.map(_buildTxRow).toList());
+      case _TxState.loading:
+        return Column(children: List.generate(3, (_) => const _ShimmerPlaceholder()));
+      case _TxState.error:
+        return _buildTxError();
+      case _TxState.empty:
+        return _buildTxEmpty();
+    }
+  }
+
+  Widget _buildTxRow(_MockTx tx) {
+    final isPositive = tx.amount > 0;
+    final amountStr = isPositive
+        ? '+${_formatVnd(tx.amount)}'
+        : '-${_formatVnd(tx.amount.abs())}';
+
+    IconData icon;
+    Color iconBg;
+    Color iconColor;
+    switch (tx.type) {
+      case _TxType.deposit:
+        icon = Icons.south_west_rounded;
+        iconBg = const Color(0xFFDCFCE7);
+        iconColor = AppColors.success;
+        break;
+      case _TxType.withdraw:
+        icon = Icons.north_east_rounded;
+        iconBg = const Color(0xFFFEF3C7);
+        iconColor = const Color(0xFFF59E0B);
+        break;
+      case _TxType.transfer:
+        icon = Icons.swap_horiz_rounded;
+        iconBg = const Color(0xFFFEF3C7);
+        iconColor = const Color(0xFFF59E0B);
+        break;
+    }
+
+    Color statusColor;
+    switch (tx.status) {
+      case _TxStatus.success:
+        statusColor = AppColors.success;
+        break;
+      case _TxStatus.pending:
+        statusColor = const Color(0xFFF59E0B);
+        break;
+      case _TxStatus.failed:
+        statusColor = AppColors.error;
+        break;
+    }
+
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: iconBg),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            // Label + date
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tx.label, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(tx.date, style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            // Amount + status
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  amountStr,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isPositive ? AppColors.success : AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  tx.status.name.toUpperCase(),
+                  style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTxError() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.error.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.error_outline_rounded, color: AppColors.error, size: 36),
+          const SizedBox(height: 8),
+          Text('Unable to load transactions', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.error)),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () => setState(() => _txState = _TxState.loading),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTxEmpty() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          const Text('💸', style: TextStyle(fontSize: 40)),
+          const SizedBox(height: 12),
+          Text('No transactions yet', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          Text('Deposit money to get started', style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecondary), textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bottom Navigation Bar
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildBottomNav() {
+    const tabs = [
+      (Icons.home_rounded, Icons.home_outlined, 'Home'),
+      (Icons.history_rounded, Icons.history_outlined, 'History'),
+      (Icons.credit_card_rounded, Icons.credit_card_outlined, 'Cards'),
+      (Icons.person_rounded, Icons.person_outlined, 'Profile'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.border)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, -4))],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: List.generate(tabs.length, (i) {
+              final isActive = i == _activeNavIndex;
+              final tab = tabs[i];
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _activeNavIndex = i),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    children: [
+                      // Top border indicator for active tab
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: 2,
+                        width: isActive ? 28 : 0,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryNavy,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Icon(
+                        isActive ? tab.$1 : tab.$2,
+                        size: 22,
+                        color: isActive ? AppColors.primaryNavy : AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        tab.$3,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 11,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                          color: isActive ? AppColors.primaryNavy : AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildActionCard(BuildContext context, String title, IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+  // ─────────────────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  String _formatVnd(num amount) {
+    final str = amount.toInt().abs().toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(str[i]);
+    }
+    return '${buffer.toString()} ₫';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shimmer Placeholder widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ShimmerPlaceholder extends StatefulWidget {
+  const _ShimmerPlaceholder();
+
+  @override
+  State<_ShimmerPlaceholder> createState() => _ShimmerPlaceholderState();
+}
+
+class _ShimmerPlaceholderState extends State<_ShimmerPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat();
+    _anim = Tween<double>(begin: -2, end: 2).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        height: 70,
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$title tapped (Placeholder)')),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: AppColors.primary, size: 28),
-                const SizedBox(height: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
+          gradient: LinearGradient(
+            begin: Alignment(_anim.value - 1, 0),
+            end: Alignment(_anim.value + 1, 0),
+            colors: const [Color(0xFFE2E8F0), Color(0xFFCBD5E1), Color(0xFFE2E8F0)],
           ),
         ),
       ),
