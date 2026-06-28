@@ -108,7 +108,7 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                   FadeUpAnimation(
                     delayInMilliseconds: 150,
                     child: Text(
-                      'Account Verified!',
+                      'Xác thực tài khoản thành công!',
                       style: AppTextStyles.heading1,
                       textAlign: TextAlign.center,
                     ),
@@ -117,7 +117,7 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                   FadeUpAnimation(
                     delayInMilliseconds: 200,
                     child: Text(
-                      'Your Walli account is ready.',
+                      'Tài khoản của bạn đã sẵn sàng.',
                       style: AppTextStyles.subtitle,
                       textAlign: TextAlign.center,
                     ),
@@ -151,7 +151,7 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Balance: 0 VND',
+                            'Số dư: 0 VND',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -170,7 +170,7 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                     delayInMilliseconds: 350,
                     child: GradientButton(
                       onPressed: () => context.go(AppRouter.login),
-                      text: 'Go to Login',
+                      text: 'Đi đến Đăng nhập',
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -187,7 +187,7 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                         }
                       },
                       child: Text(
-                        'Back to OTP screen',
+                        'Quay lại màn hình OTP',
                         style: AppTextStyles.linkText,
                       ),
                     ),

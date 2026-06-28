@@ -53,7 +53,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('OTP code has been resent!'),
+          content: Text('Mã OTP đã được gửi lại!'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -69,7 +69,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     if (code.length < 6) {
       setState(() {
-        _errorMessage = 'Please enter all 6 digits';
+        _errorMessage = 'Vui lòng nhập đủ 6 số';
       });
       return;
     }
@@ -193,14 +193,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               children: [
                 const SizedBox(height: 16),
                 Text(
-                  'Verify Account',
+                  'Xác thực tài khoản',
                   style: AppTextStyles.heading1.copyWith(
                     color: AppColors.textWhite,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'We sent a code to ${widget.registerData.email}',
+                  'Chúng tôi đã gửi mã đến ${widget.registerData.email}',
                   style: AppTextStyles.subtitle.copyWith(
                     color: AppColors.textWhite.withValues(alpha: 0.8),
                   ),
@@ -243,7 +243,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                 setState(() {
                                   _isExpired = true;
                                   _errorMessage =
-                                      'Code expired. Please resend.';
+                                      'Mã đã hết hạn. Vui lòng gửi lại.';
                                 });
                               },
                             ),
@@ -302,20 +302,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  "Didn't receive a code? ",
+                                  "Chưa nhận được mã? ",
                                   style: AppTextStyles.bodySecondary,
                                 ),
                                 TextButton(
                                   onPressed: _handleResend,
                                   child: Text(
-                                    'Resend OTP',
+                                    'Gửi lại OTP',
                                     style: AppTextStyles.linkText,
                                   ),
                                 ),
                               ],
                             )
                           : Text(
-                              "Code is valid for 5 minutes",
+                              "Mã có hiệu lực trong 5 phút",
                               style: AppTextStyles.bodySecondary,
                             ),
                     ),
@@ -328,7 +328,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     delayInMilliseconds: 180,
                     child: Center(
                       child: Text(
-                        'Attempts remaining: $_attemptsRemaining',
+                        'Số lần thử còn lại: $_attemptsRemaining',
                         style: TextStyle(
                           fontSize: 13,
                           color: _attemptsRemaining <= 2
@@ -351,7 +351,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       onPressed: (_attemptsRemaining > 0 && !_isExpired)
                           ? _handleVerify
                           : null,
-                      text: 'Verify Code',
+                      text: 'Xác thực mã',
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -363,7 +363,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       child: TextButton(
                         onPressed: () => context.go(AppRouter.register),
                         child: Text(
-                          'Wrong number? Go back',
+                          'Sai số? Quay lại',
                           style: AppTextStyles.linkText,
                         ),
                       ),

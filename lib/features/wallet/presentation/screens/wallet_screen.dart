@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/services/api_service.dart';
+import 'package:intl/intl.dart';
+import '../../../bank_link/presentation/screens/bank_accounts_tab.dart';
+import 'transaction_history_tab.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data models (mock)
@@ -28,7 +31,8 @@ class _MockTx {
   final String date;
   final double amount;
   final _TxStatus status;
-  const _MockTx(this.type, this.label, this.date, this.amount, this.status);
+  final Map<String, dynamic> rawData;
+  const _MockTx(this.type, this.label, this.date, this.amount, this.status, this.rawData);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,12 +56,51 @@ class _WalletScreenState extends State<WalletScreen> {
   double? _balance;
   bool _isLoadingBalance = true;
 
+  // ── Bank data ──
+  List<_MockBank> _banks = [];
+  bool _isLoadingBanks = true;
+
   @override
   void initState() {
     super.initState();
     _userName = ApiService.currentUserFullName ?? 'User';
     _fetchWallet();
     _fetchTransactions();
+    _fetchLinkedBanks();
+  }
+
+  Future<void> _fetchLinkedBanks() async {
+    try {
+      final response = await ApiService.getLinkedBankAccounts();
+      if (mounted) {
+        setState(() {
+          _banks = response.map((item) {
+            final code = item['bankCode'] as String? ?? '';
+            final name = item['bankName'] as String? ?? code;
+            final accNo = item['accountNumber'] as String? ?? '';
+            final masked = accNo.length >= 4 
+                ? '···· ${accNo.substring(accNo.length - 4)}'
+                : accNo;
+            return _MockBank(code, name, masked, _getBankColor(code));
+          }).toList();
+          _isLoadingBanks = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingBanks = false);
+    }
+  }
+
+  Color _getBankColor(String code) {
+    switch (code) {
+      case 'VCB': return const Color(0xFF007B40);
+      case 'TCB': return const Color(0xFFCC0000);
+      case 'MB': return const Color(0xFF1B4E9B);
+      case 'BIDV': return const Color(0xFF0D5A86);
+      case 'ACB': return const Color(0xFF005DAA);
+      case 'VPB': return const Color(0xFF00A651);
+      default: return AppColors.primaryNavy;
+    }
   }
 
   Future<void> _fetchTransactions() async {
@@ -69,43 +112,51 @@ class _WalletScreenState extends State<WalletScreen> {
         } else {
           setState(() {
             _transactions = txs.map((tx) {
-              final typeStr = (tx['type'] as String?)?.toUpperCase() ?? 'DEPOSIT';
+              final typeStr = (tx['type'] as String?)?.toUpperCase() ?? 'BANK_TO_WALLET';
               final statusStr = (tx['status'] as String?)?.toUpperCase() ?? 'SUCCESS';
               
-              _TxType type = _TxType.deposit;
-              if (typeStr == 'WITHDRAW' || typeStr == 'WITHDRAWAL') type = _TxType.withdraw;
-              else if (typeStr == 'TRANSFER') type = _TxType.transfer;
+              _TxType type = _TxType.transfer;
+              if (typeStr == 'BANK_TO_WALLET') type = _TxType.deposit;
+              else if (typeStr == 'WALLET_TO_BANK') type = _TxType.withdraw;
               
               _TxStatus status = _TxStatus.success;
               if (statusStr == 'PENDING') status = _TxStatus.pending;
               else if (statusStr == 'FAILED') status = _TxStatus.failed;
 
               final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-              final dateStr = tx['createdAt'] as String? ?? '';
+              final dateStr = tx['updatedAt'] as String? ?? '';
               
               String formattedDate = dateStr;
               try {
                 if (dateStr.length >= 10) {
                   final dt = DateTime.parse(dateStr).toLocal();
-                  final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                  formattedDate = '${months[dt.month - 1]} ${dt.day}';
-                  
                   final now = DateTime.now();
                   if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-                    formattedDate = 'Today';
+                    formattedDate = 'Hôm nay';
                   } else if (dt.year == now.year && dt.month == now.month && dt.day == now.day - 1) {
-                    formattedDate = 'Yesterday';
+                    formattedDate = 'Hôm qua';
+                  } else {
+                    formattedDate = DateFormat('MMM d').format(dt);
                   }
                 }
               } catch (_) {}
 
               // Use typeStr for label fallback if referenceCode is not clean
+              bool isPositive = amount > 0;
+              if (type == _TxType.deposit) isPositive = true;
+              else if (type == _TxType.withdraw) isPositive = false;
+              else if (type == _TxType.transfer) {
+                 if (typeStr == 'WALLET_TRANSFER_IN') isPositive = true;
+                 else if (typeStr == 'WALLET_TRANSFER_OUT') isPositive = false;
+                 else isPositive = amount > 0;
+              }
+              
               String label = typeStr;
-              if (type == _TxType.deposit) label = 'Deposit';
-              else if (type == _TxType.withdraw) label = 'Withdraw';
-              else if (type == _TxType.transfer) label = 'Transfer';
+              if (type == _TxType.deposit) label = 'Nạp tiền';
+              else if (type == _TxType.withdraw) label = 'Rút tiền';
+              else if (type == _TxType.transfer) label = 'Chuyển tiền';
 
-              return _MockTx(type, label, formattedDate, amount, status);
+              return _MockTx(type, label, formattedDate, isPositive ? amount.abs() : -amount.abs(), status, tx);
             }).toList();
             _txState = _TxState.loaded;
           });
@@ -137,30 +188,16 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   String _formatCurrency(double value) {
-    final str = value.toInt().toString();
-    var result = '';
-    for (int i = 0; i < str.length; i++) {
-      if (i > 0 && (str.length - i) % 3 == 0) {
-        result += ',';
-      }
-      result += str[i];
-    }
-    return '$result ₫';
+    return NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(value);
   }
-
-  // ── Mock data ──
-  final List<_MockBank> _banks = const [
-    _MockBank('VCB', 'Vietcombank', '···· 9012', Color(0xFF007B40)),
-    _MockBank('TCB', 'Techcombank', '···· 3341', Color(0xFFCC0000)),
-  ];
 
   List<_MockTx> _transactions = [];
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return 'Chào buổi sáng';
+    if (hour < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
   }
 
   Future<void> _handleLogout() async {
@@ -168,8 +205,8 @@ class _WalletScreenState extends State<WalletScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Logout?'),
-        content: const Text('Do you want to logout from this account?'),
+        title: const Text('Đăng xuất?'),
+        content: const Text('Bạn có muốn đăng xuất khỏi tài khoản này?'),
         actions: [
           Row(
             children: [
@@ -183,7 +220,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     ),
                     side: BorderSide(color: AppColors.border),
                   ),
-                  child: Text('Cancel', style: TextStyle(color: AppColors.textPrimary)),
+                  child: Text('Hủy', style: TextStyle(color: AppColors.textPrimary)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -197,7 +234,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Logout', style: TextStyle(color: Colors.white)),
+                  child: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
@@ -221,19 +258,31 @@ class _WalletScreenState extends State<WalletScreen> {
       backgroundColor: AppColors.surface,
       body: Column(
         children: [
-          // ── Scrollable body ──
+          // ── Scrollable body / Tabs ──
           Expanded(
-            child: CustomScrollView(
-              slivers: [
-                // ── Section 1 + 2: Header + Balance Card (one Stack) ──
-                SliverToBoxAdapter(child: _buildHeaderSection(context)),
-                // ── Section 3: Quick Actions ──
-                SliverToBoxAdapter(child: _buildQuickActions()),
-                // ── Section 4: Linked Banks ──
-                SliverToBoxAdapter(child: _buildLinkedBanks()),
-                // ── Section 5: Recent Transactions ──
-                SliverToBoxAdapter(child: _buildRecentTransactions()),
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            child: IndexedStack(
+              index: _activeNavIndex,
+              children: [
+                // 0: Home Tab
+                CustomScrollView(
+                  slivers: [
+                    // ── Section 1 + 2: Header + Balance Card (one Stack) ──
+                    SliverToBoxAdapter(child: _buildHeaderSection(context)),
+                    // ── Section 3: Quick Actions ──
+                    SliverToBoxAdapter(child: _buildQuickActions()),
+                    // ── Section 4: Linked Banks ──
+                    SliverToBoxAdapter(child: _buildLinkedBanks()),
+                    // ── Section 5: Recent Transactions ──
+                    SliverToBoxAdapter(child: _buildRecentTransactions()),
+                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  ],
+                ),
+                // 1: History Tab
+                const TransactionHistoryTab(),
+                // 2: Cards Tab
+                const BankAccountsTab(),
+                // 3: Profile Tab Placeholder
+                const Center(child: Text('Tab Hồ sơ - Sắp ra mắt')),
               ],
             ),
           ),
@@ -400,7 +449,7 @@ class _WalletScreenState extends State<WalletScreen> {
               Row(
                 children: [
                   Text(
-                    'AVAILABLE BALANCE',
+                    'SỐ DƯ KHẢ DỤNG',
                     style: GoogleFonts.dmSans(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -414,14 +463,22 @@ class _WalletScreenState extends State<WalletScreen> {
                     onTap: () => setState(() => _balanceHidden = !_balanceHidden),
                   ),
                   const SizedBox(width: 6),
-                  _cardIconBtn(Icons.refresh_rounded, onTap: () {}),
+                  _cardIconBtn(Icons.refresh_rounded, onTap: () {
+                    setState(() => _isLoadingBalance = true);
+                    _fetchWallet();
+                    _fetchTransactions();
+                  }),
                 ],
               ),
               const SizedBox(height: 14),
               // Row 2: Amount
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: _balanceHidden
+              SizedBox(
+                height: 48,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: _balanceHidden
                     ? Text(
                         '•••••••••',
                         key: const ValueKey('hidden'),
@@ -440,8 +497,10 @@ class _WalletScreenState extends State<WalletScreen> {
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
-                      ),
-              ),
+                      ), // closes Text
+                    ), // closes AnimatedSwitcher
+                  ), // closes Align
+                ), // closes SizedBox
               const SizedBox(height: 20),
               // Row 3: Status + masked ID
               Row(
@@ -464,7 +523,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'ACTIVE',
+                    'HOẠT ĐỘNG',
                     style: GoogleFonts.dmSans(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -517,10 +576,10 @@ class _WalletScreenState extends State<WalletScreen> {
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
           child: Row(
             children: [
-              _actionButton(Icons.south_west_rounded, 'Deposit', const Color(0xFFDCFCE7), AppColors.success),
-              _actionButton(Icons.north_east_rounded, 'Withdraw', const Color(0xFFFEF3C7), const Color(0xFFF59E0B)),
-              _actionButton(Icons.swap_horiz_rounded, 'Transfer', const Color(0xFFDBEAFE), const Color(0xFF3B82F6)),
-              _actionButton(Icons.access_time_rounded, 'History', const Color(0xFFEDE9FE), const Color(0xFF8B5CF6)),
+              _actionButton(Icons.south_west_rounded, 'Nạp tiền', const Color(0xFFDCFCE7), AppColors.success),
+              _actionButton(Icons.north_east_rounded, 'Rút tiền', const Color(0xFFFEF3C7), const Color(0xFFF59E0B)),
+              _actionButton(Icons.swap_horiz_rounded, 'Chuyển tiền', const Color(0xFFDBEAFE), const Color(0xFF3B82F6)),
+              _actionButton(Icons.access_time_rounded, 'Lịch sử', const Color(0xFFEDE9FE), const Color(0xFF8B5CF6)),
             ],
           ),
         ),
@@ -530,10 +589,27 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget _actionButton(IconData icon, String label, Color bgColor, Color iconColor) {
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$label tapped'), duration: const Duration(seconds: 1)),
-          );
+        onTap: () async {
+          switch (label) {
+            case 'Nạp tiền':
+              await context.push('/deposit/select-bank');
+              _fetchWallet();
+              _fetchTransactions();
+              break;
+            case 'Rút tiền':
+              await context.push('/withdraw/amount');
+              _fetchWallet();
+              _fetchTransactions();
+              break;
+            case 'Chuyển tiền':
+              await context.push('/transfer');
+              _fetchWallet();
+              _fetchTransactions();
+              break;
+            case 'Lịch sử':
+              setState(() => _activeNavIndex = 1);
+              break;
+          }
         },
         child: Column(
           children: [
@@ -567,13 +643,15 @@ class _WalletScreenState extends State<WalletScreen> {
             // Section header
             Row(
               children: [
-                Text('Linked Banks', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text('Ngân hàng liên kết', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    setState(() => _activeNavIndex = 2);
+                  },
                   child: Row(
                     children: [
-                      Text('Manage', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.indigo)),
+                      Text('Quản lý', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.indigo)),
                       const Icon(Icons.chevron_right, size: 18, color: AppColors.indigo),
                     ],
                   ),
@@ -586,7 +664,13 @@ class _WalletScreenState extends State<WalletScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  ..._banks.map((b) => _bankCard(b)),
+                  if (_isLoadingBanks)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                    )
+                  else
+                    ..._banks.map((b) => _bankCard(b)),
                   _addBankTile(),
                 ],
               ),
@@ -630,7 +714,12 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Widget _addBankTile() {
     return GestureDetector(
-      onTap: () {},
+      onTap: () async {
+        final linkedCodes = _banks.map((b) => b.code).toList();
+        await context.push('/select-bank', extra: linkedCodes);
+        setState(() => _isLoadingBanks = true);
+        _fetchLinkedBanks();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -642,7 +731,7 @@ class _WalletScreenState extends State<WalletScreen> {
           children: [
             const Icon(Icons.add_rounded, size: 22, color: AppColors.textSecondary),
             const SizedBox(height: 4),
-            Text('Add', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+            Text('Thêm', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
           ],
         ),
       ),
@@ -662,13 +751,15 @@ class _WalletScreenState extends State<WalletScreen> {
             // Header row
             Row(
               children: [
-                Text('Recent Transactions', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text('Giao dịch gần đây', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    setState(() => _activeNavIndex = 1);
+                  },
                   child: Row(
                     children: [
-                      Text('See all', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.indigo)),
+                      Text('Xem tất cả', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.indigo)),
                       const Icon(Icons.chevron_right, size: 18, color: AppColors.indigo),
                     ],
                   ),
@@ -738,7 +829,9 @@ class _WalletScreenState extends State<WalletScreen> {
     }
 
     return GestureDetector(
-      onTap: () {},
+      onTap: () {
+        context.push('/transaction/detail', extra: tx.rawData);
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -807,7 +900,7 @@ class _WalletScreenState extends State<WalletScreen> {
         children: [
           Icon(Icons.error_outline_rounded, color: AppColors.error, size: 36),
           const SizedBox(height: 8),
-          Text('Unable to load transactions', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.error)),
+          Text('Không thể tải giao dịch', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.error)),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: () => setState(() => _txState = _TxState.loading),
@@ -817,7 +910,7 @@ class _WalletScreenState extends State<WalletScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
-            child: const Text('Retry'),
+            child: const Text('Thử lại'),
           ),
         ],
       ),
@@ -836,9 +929,9 @@ class _WalletScreenState extends State<WalletScreen> {
         children: [
           const Text('💸', style: TextStyle(fontSize: 40)),
           const SizedBox(height: 12),
-          Text('No transactions yet', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text('Chưa có giao dịch nào', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
           const SizedBox(height: 6),
-          Text('Deposit money to get started', style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecondary), textAlign: TextAlign.center),
+          Text('Nạp tiền để bắt đầu', style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecondary), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -850,10 +943,10 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Widget _buildBottomNav() {
     const tabs = [
-      (Icons.home_rounded, Icons.home_outlined, 'Home'),
-      (Icons.history_rounded, Icons.history_outlined, 'History'),
-      (Icons.credit_card_rounded, Icons.credit_card_outlined, 'Cards'),
-      (Icons.person_rounded, Icons.person_outlined, 'Profile'),
+      (Icons.home_rounded, Icons.home_outlined, 'Trang chủ'),
+      (Icons.history_rounded, Icons.history_outlined, 'Lịch sử'),
+      (Icons.credit_card_rounded, Icons.credit_card_outlined, 'Thẻ'),
+      (Icons.person_rounded, Icons.person_outlined, 'Hồ sơ'),
     ];
 
     return Container(
@@ -917,13 +1010,7 @@ class _WalletScreenState extends State<WalletScreen> {
   // ─────────────────────────────────────────────────────────────────────────
 
   String _formatVnd(num amount) {
-    final str = amount.toInt().abs().toString();
-    final buffer = StringBuffer();
-    for (int i = 0; i < str.length; i++) {
-      if (i > 0 && (str.length - i) % 3 == 0) buffer.write(',');
-      buffer.write(str[i]);
-    }
-    return '${buffer.toString()} ₫';
+    return NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(amount);
   }
 }
 

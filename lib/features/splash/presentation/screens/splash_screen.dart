@@ -53,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 24),
             // Title Card text
-            Text('Title card', style: AppTextStyles.heading2),
+            Text('Ví điện tử', style: AppTextStyles.heading2),
           ],
         ),
       ),

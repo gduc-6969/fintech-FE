@@ -97,7 +97,7 @@ class _PasswordResetSuccessScreenState extends State<PasswordResetSuccessScreen>
                   FadeUpAnimation(
                     delayInMilliseconds: 150,
                     child: Text(
-                      'Password Reset!',
+                      'Đặt lại mật khẩu thành công!',
                       style: AppTextStyles.heading1,
                       textAlign: TextAlign.center,
                     ),
@@ -108,7 +108,7 @@ class _PasswordResetSuccessScreenState extends State<PasswordResetSuccessScreen>
                   FadeUpAnimation(
                     delayInMilliseconds: 200,
                     child: Text(
-                      'Your password has been updated successfully.\nYou can now log in with your new password.',
+                      'Mật khẩu của bạn đã được cập nhật thành công.\nBạn có thể đăng nhập bằng mật khẩu mới.',
                       style: AppTextStyles.subtitle,
                       textAlign: TextAlign.center,
                     ),
@@ -120,7 +120,7 @@ class _PasswordResetSuccessScreenState extends State<PasswordResetSuccessScreen>
                     delayInMilliseconds: 350,
                     child: GradientButton(
                       onPressed: () => context.go(AppRouter.login),
-                      text: 'Go to Login',
+                      text: 'Đi đến Đăng nhập',
                     ),
                   ),
                   const SizedBox(height: 24),

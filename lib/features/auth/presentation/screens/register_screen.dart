@@ -196,14 +196,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const SizedBox(height: 16),
                 Text(
-                  'Create Account',
+                  'Tạo tài khoản',
                   style: AppTextStyles.heading1.copyWith(
                     color: AppColors.textWhite,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Fill in your details',
+                  'Điền thông tin của bạn',
                   style: AppTextStyles.subtitle.copyWith(
                     color: AppColors.textWhite.withValues(alpha: 0.8),
                   ),
@@ -226,7 +226,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Full name *', style: AppTextStyles.label),
+                    Text('Họ và tên *', style: AppTextStyles.label),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _fullNameController,
@@ -234,7 +234,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textCapitalization: TextCapitalization.none,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: const InputDecoration(
-                        hintText: 'Enter your full name',
+                        hintText: 'Nhập họ và tên của bạn',
                       ),
                       validator: Validators.validateFullName,
                     ),
@@ -256,7 +256,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       keyboardType: TextInputType.emailAddress,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: const InputDecoration(
-                        hintText: 'Enter your email',
+                        hintText: 'Nhập email của bạn',
                       ),
                       onChanged: (_) {
                         if (_emailServerError != null) {
@@ -265,7 +265,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'Email is required';
+                          return 'Vui lòng nhập email';
                         }
                         final localErr = Validators.validateEmail(val);
                         if (localErr != null) return localErr;
@@ -283,14 +283,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Phone Number *', style: AppTextStyles.label),
+                    Text('Số điện thoại *', style: AppTextStyles.label),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: const InputDecoration(
-                        hintText: '0xxxxxxxxx or +84xxxxxxxxx',
+                        hintText: '0xxxxxxxxx hoặc +84xxxxxxxxx',
                       ),
                       onChanged: (_) {
                         if (_phoneServerError != null) {
@@ -314,14 +314,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Password *', style: AppTextStyles.label),
+                    Text('Mật khẩu *', style: AppTextStyles.label),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _isPasswordObscured,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: InputDecoration(
-                        hintText: 'Create a password',
+                        hintText: 'Tạo mật khẩu',
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isPasswordObscured
@@ -353,16 +353,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     children: [
                       _buildCriteriaItem(
-                        'At least 8 characters',
+                        'Ít nhất 8 ký tự',
                         _hasMinLength,
                       ),
-                      _buildCriteriaItem('Contains a number', _hasNumber),
+                      _buildCriteriaItem('Chứa ít nhất 1 số', _hasNumber),
                       _buildCriteriaItem(
-                        'Contains an uppercase letter',
+                        'Chứa chữ in hoa',
                         _hasUppercase,
                       ),
                       _buildCriteriaItem(
-                        'Contains a special character',
+                        'Chứa ký tự đặc biệt',
                         _hasSpecialChar,
                       ),
                     ],
@@ -376,14 +376,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Confirm Password *', style: AppTextStyles.label),
+                    Text('Xác nhận mật khẩu *', style: AppTextStyles.label),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _confirmPasswordController,
                       obscureText: _isConfirmObscured,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: InputDecoration(
-                        hintText: 'Re-enter your password',
+                        hintText: 'Nhập lại mật khẩu của bạn',
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isConfirmObscured
@@ -413,7 +413,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 delayInMilliseconds: 250,
                 child: GradientButton(
                   onPressed: _handleRegister,
-                  text: 'Create Account',
+                  text: 'Tạo tài khoản',
                 ),
               ),
               const SizedBox(height: 28),
@@ -425,13 +425,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Already have an account? ',
+                      'Đã có tài khoản? ',
                       style: AppTextStyles.bodySecondary,
                     ),
                     TextButton(
                       onPressed: () =>
                           context.go(AppRouter.login), // Flow: Goes to Login
-                      child: Text('Sign in →', style: AppTextStyles.linkText),
+                      child: Text('Đăng nhập →', style: AppTextStyles.linkText),
                     ),
                   ],
                 ),

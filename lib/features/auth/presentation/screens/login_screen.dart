@@ -26,7 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _serverError;
   bool _isWrongCredentials = false;
-  String? _otpVerificationRequiredError;
 
   @override
   void dispose() {
@@ -39,7 +38,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _serverError = null;
       _isWrongCredentials = false;
-      _otpVerificationRequiredError = null;
     });
 
     if (!_formKey.currentState!.validate()) {
@@ -107,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Title card',
+              'Đăng nhập',
               style: AppTextStyles.heading2.copyWith(
                 color: AppColors.textWhite,
               ),
@@ -128,14 +126,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Phone Number *', style: AppTextStyles.label),
+                    Text('Số điện thoại *', style: AppTextStyles.label),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: const InputDecoration(
-                        hintText: '0xxxxxxxxx or +84xxxxxxxxx',
+                        hintText: '0xxxxxxxxx hoặc +84xxxxxxxxx',
                       ),
                       validator: Validators.validatePhone,
                     ),
@@ -150,14 +148,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Password *', style: AppTextStyles.label),
+                    Text('Mật khẩu *', style: AppTextStyles.label),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _isPasswordObscured,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: InputDecoration(
-                        hintText: 'Enter your password',
+                        hintText: 'Nhập mật khẩu của bạn',
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isPasswordObscured
@@ -174,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       validator: (val) {
                         if (val == null || val.isEmpty) {
-                          return 'Password is required';
+                          return 'Vui lòng nhập mật khẩu';
                         }
                         return null;
                       },
@@ -193,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
-                    'Forgot Password?',
+                    'Quên mật khẩu?',
                     style: AppTextStyles.linkText,
                   ),
                 ),
@@ -206,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 12.0),
                     child: Text(
-                      'Incorrect phone number or password',
+                      'Số điện thoại hoặc mật khẩu không chính xác',
                       style: TextStyle(
                         color: AppColors.error,
                         fontSize: 13,
@@ -223,32 +221,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 delayInMilliseconds: 210,
                 child: GradientButton(
                   onPressed: _isLoading ? null : _handleLogin,
-                  text: _isLoading ? 'Logging in...' : 'Login',
+                  text: _isLoading ? 'Đang đăng nhập...' : 'Đăng nhập',
                 ),
               ),
-
-              // Account Status/Error Banners
-              if (_otpVerificationRequiredError != null)
-                FadeUpAnimation(
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.05),
-                      border: Border.all(
-                        color: AppColors.error.withOpacity(0.3),
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _otpVerificationRequiredError!,
-                      style: const TextStyle(
-                        color: AppColors.error,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
 
               if (_serverError != null)
                 FadeUpAnimation(
@@ -281,13 +256,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Don't have an account? ",
+                      "Chưa có tài khoản? ",
                       style: AppTextStyles.bodySecondary,
                     ),
                     TextButton(
                       onPressed: () => context.push(AppRouter.register),
                       child: Text(
-                        'Create one →',
+                        'Tạo tài khoản →',
                         style: AppTextStyles.linkText,
                       ),
                     ),

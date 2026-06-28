@@ -9,7 +9,17 @@ import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/success_screen.dart';
 import '../../features/auth/presentation/screens/password_reset_success_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
-
+import '../../features/wallet/presentation/screens/deposit_select_bank_screen.dart';
+import '../../features/wallet/presentation/screens/deposit_amount_screen.dart';
+import '../../features/wallet/presentation/screens/withdraw_amount_screen.dart';
+import '../../features/wallet/presentation/screens/withdraw_select_bank_screen.dart';
+import '../../features/wallet/presentation/screens/transfer_screen.dart';
+import '../../features/wallet/presentation/screens/transaction_review_screen.dart';
+import '../../features/wallet/presentation/screens/transaction_success_screen.dart';
+import '../../features/wallet/presentation/screens/transaction_detail_screen.dart';
+import '../../features/bank_link/presentation/screens/select_bank_screen.dart';
+import '../../features/bank_link/presentation/screens/account_details_screen.dart';
+import '../../features/bank_link/presentation/screens/bank_link_success_screen.dart';
 class AppRouter {
   AppRouter._();
 
@@ -59,6 +69,66 @@ class AppRouter {
         builder: (context, state) => const SuccessScreen(),
       ),
       GoRoute(path: wallet, builder: (context, state) => const WalletScreen()),
+      GoRoute(
+        path: '/select-bank',
+        builder: (context, state) {
+          final linkedCodes = state.extra as List<String>? ?? [];
+          return SelectBankScreen(linkedBankCodes: linkedCodes);
+        },
+      ),
+      GoRoute(
+        path: '/account-details',
+        builder: (context, state) {
+          final bank = state.extra as Map<String, dynamic>;
+          return AccountDetailsScreen(bank: bank);
+        },
+      ),
+      GoRoute(
+        path: '/bank-link-success',
+        builder: (context, state) {
+          final bank = state.extra as Map<String, dynamic>;
+          return BankLinkSuccessScreen(bank: bank);
+        },
+      ),
+      // ── Money Movement Routes ──
+      GoRoute(path: '/deposit/select-bank', builder: (context, state) => const DepositSelectBankScreen()),
+      GoRoute(
+        path: '/deposit/amount',
+        builder: (context, state) {
+          final bank = state.extra as Map<String, dynamic>;
+          return DepositAmountScreen(bank: bank);
+        },
+      ),
+      GoRoute(path: '/withdraw/amount', builder: (context, state) => const WithdrawAmountScreen()),
+      GoRoute(
+        path: '/withdraw/select-bank',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return WithdrawSelectBankScreen(amount: (data['amount'] as num).toDouble());
+        },
+      ),
+      GoRoute(path: '/transfer', builder: (context, state) => const TransferScreen()),
+      GoRoute(
+        path: '/transaction/review',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return TransactionReviewScreen(data: data);
+        },
+      ),
+      GoRoute(
+        path: '/transaction/success',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return TransactionSuccessScreen(data: data);
+        },
+      ),
+      GoRoute(
+        path: '/transaction/detail',
+        builder: (context, state) {
+          final tx = state.extra as Map<String, dynamic>;
+          return TransactionDetailScreen(transaction: tx);
+        },
+      ),
     ],
   );
 }

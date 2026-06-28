@@ -56,7 +56,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      setState(() => _errorMessage = 'Email is required');
+      setState(() => _errorMessage = 'Vui lòng nhập email');
       return;
     }
 
@@ -64,7 +64,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$',
     );
     if (!emailRegex.hasMatch(email)) {
-      setState(() => _errorMessage = 'Please enter a valid email address');
+      setState(() => _errorMessage = 'Vui lòng nhập email hợp lệ');
       return;
     }
 
@@ -77,7 +77,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         _isLoading = false;
         _codeSent = true;
         _infoMessage =
-            'If $email is registered, you\'ll receive a code shortly.';
+            'Nếu $email đã được đăng ký, bạn sẽ nhận được mã ngay.';
       });
     } on DioException catch (e) {
       if (!mounted) return;
@@ -90,7 +90,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           _isLoading = false;
           _codeSent = true;
           _infoMessage =
-              'If $email is registered, you\'ll receive a code shortly.';
+              'Nếu $email đã được đăng ký, bạn sẽ nhận được mã ngay.';
         });
       } else {
         // Real errors (timeout, 5xx, network down) — show the error banner.
@@ -105,7 +105,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   void _handleVerifyOtp() {
     final code = _otpController.text.trim();
     if (code.length < 6) {
-      setState(() => _errorMessage = 'Please enter all 6 digits');
+      setState(() => _errorMessage = 'Vui lòng nhập đủ 6 số');
       return;
     }
     setState(() {
@@ -123,32 +123,32 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     if (newPassword.length < 8) {
       setState(
-        () => _errorMessage = 'Password must be at least 8 characters',
+        () => _errorMessage = 'Mật khẩu phải có ít nhất 8 ký tự',
       );
       return;
     }
     if (!_hasNumber(newPassword)) {
       setState(
-        () => _errorMessage = 'Password must contain at least one number',
+        () => _errorMessage = 'Mật khẩu phải chứa ít nhất một số',
       );
       return;
     }
     if (!_hasUppercase(newPassword)) {
       setState(
         () =>
-            _errorMessage = 'Password must contain at least one uppercase letter',
+            _errorMessage = 'Mật khẩu phải chứa ít nhất một chữ in hoa',
       );
       return;
     }
     if (!_hasSpecialChar(newPassword)) {
       setState(
         () =>
-            _errorMessage = 'Password must contain at least one special character',
+            _errorMessage = 'Mật khẩu phải chứa ít nhất một ký tự đặc biệt',
       );
       return;
     }
     if (newPassword != confirmPassword) {
-      setState(() => _errorMessage = 'Passwords do not match');
+      setState(() => _errorMessage = 'Mật khẩu không khớp');
       return;
     }
 
@@ -174,7 +174,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       setState(() {
         _isLoading = false;
         _errorMessage = isInvalidOtp
-            ? 'Verification code is invalid or expired. Please re-enter it.'
+            ? 'Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng nhập lại.'
             : message;
         if (isInvalidOtp) {
           // Let the user go back and correct the OTP.
@@ -262,14 +262,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               children: [
                 const SizedBox(height: 16),
                 Text(
-                  'Reset Password',
+                  'Đặt lại mật khẩu',
                   style: AppTextStyles.heading1.copyWith(
                     color: AppColors.textWhite,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Enter your email, verify the code,\nthen set a new password',
+                  'Nhập email của bạn, xác thực mã,\nsau đó đặt mật khẩu mới',
                   style: AppTextStyles.subtitle.copyWith(
                     color: AppColors.textWhite.withValues(alpha: 0.8),
                   ),
@@ -360,7 +360,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  _codeSent ? 'Resend Code' : 'Send Code',
+                  _codeSent ? 'Gửi lại mã' : 'Gửi mã',
                   style: AppTextStyles.linkText,
                 ),
               ),
@@ -371,7 +371,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
-            hintText: 'Enter your email',
+            hintText: 'Nhập email của bạn',
             prefixIcon: Icon(
               Icons.email_outlined,
               color: AppColors.textSecondary,
@@ -389,13 +389,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       children: [
         Row(
           children: [
-            Text('VERIFICATION CODE *', style: AppTextStyles.label),
+            Text('MÃ XÁC THỰC *', style: AppTextStyles.label),
             if (_isOtpVerified) ...[
               const SizedBox(width: 8),
               const Icon(Icons.check_circle, color: AppColors.success, size: 16),
               const SizedBox(width: 4),
               Text(
-                'Verified',
+                'Đã xác thực',
                 style: TextStyle(
                   color: AppColors.success,
                   fontWeight: FontWeight.w600,
@@ -421,7 +421,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   elevation: 0,
                 ),
                 child: const Text(
-                  'Done',
+                  'Xong',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -449,14 +449,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('NEW PASSWORD *', style: AppTextStyles.label),
+        Text('MẬT KHẨU MỚI *', style: AppTextStyles.label),
         const SizedBox(height: 8),
         TextFormField(
           controller: _newPasswordController,
           obscureText: _isNewPasswordObscured,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-            hintText: 'Create a strong password',
+            hintText: 'Tạo mật khẩu mạnh',
             prefixIcon: const Icon(
               Icons.lock_outline,
               color: AppColors.textSecondary,
@@ -481,10 +481,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           spacing: 12,
           runSpacing: 6,
           children: [
-            _pwCheck('8+ chars', _hasMinLength(password)),
-            _pwCheck('Number', _hasNumber(password)),
-            _pwCheck('Uppercase', _hasUppercase(password)),
-            _pwCheck('Special char', _hasSpecialChar(password)),
+            _pwCheck('8+ ký tự', _hasMinLength(password)),
+            _pwCheck('Số', _hasNumber(password)),
+            _pwCheck('Chữ in hoa', _hasUppercase(password)),
+            _pwCheck('Ký tự đặc biệt', _hasSpecialChar(password)),
           ],
         ),
       ],
@@ -496,13 +496,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('CONFIRM NEW PASSWORD *', style: AppTextStyles.label),
+        Text('XÁC NHẬN MẬT KHẨU MỚI *', style: AppTextStyles.label),
         const SizedBox(height: 8),
         TextFormField(
           controller: _confirmPasswordController,
           obscureText: _isConfirmPasswordObscured,
           decoration: InputDecoration(
-            hintText: 'Re-enter your new password',
+            hintText: 'Nhập lại mật khẩu mới',
             prefixIcon: const Icon(
               Icons.lock_outline,
               color: AppColors.textSecondary,
@@ -532,7 +532,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Widget _buildResetButton() {
     return GradientButton(
       onPressed: _isLoading ? null : _handleResetPassword,
-      text: _isLoading ? 'Resetting...' : 'Reset Password',
+      text: _isLoading ? 'Đang đặt lại...' : 'Đặt lại mật khẩu',
     );
   }
 
@@ -592,7 +592,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Identity verified \u2014 set your new password below',
+              'Đã xác thực danh tính \u2014 đặt mật khẩu mới của bạn bên dưới',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
