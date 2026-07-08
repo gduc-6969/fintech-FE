@@ -4,6 +4,7 @@ import '../../core/services/api_service.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/register_identity_screen.dart';
 import '../../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/success_screen.dart';
@@ -26,6 +27,7 @@ class AppRouter {
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
+  static const String registerIdentity = '/register-identity';
   static const String otpVerify = '/verify-phone';
   static const String resetPassword = '/reset-password';
   static const String resetPasswordSuccess = '/reset-password-success';
@@ -44,6 +46,16 @@ class AppRouter {
           return RegisterScreen(
             initialData: payload is RegisterPayload ? payload : null,
           );
+        },
+      ),
+      GoRoute(
+        path: registerIdentity,
+        builder: (context, state) {
+          final payload = state.extra;
+          if (payload is! RegisterPayload) {
+            return const RegisterScreen();
+          }
+          return RegisterIdentityScreen(step1Data: payload);
         },
       ),
       GoRoute(

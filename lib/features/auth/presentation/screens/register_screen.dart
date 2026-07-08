@@ -10,6 +10,7 @@ import '../widgets/auth_layout.dart';
 import '../widgets/fade_up_animation.dart';
 import '../widgets/gradient_button.dart';
 import '../widgets/password_strength_bar.dart';
+import '../widgets/step_indicator.dart';
 
 class RegisterScreen extends StatefulWidget {
   final RegisterPayload? initialData;
@@ -115,14 +116,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneNumber: payload.phoneNumber,
         password: payload.password,
       );
-      await ApiService.requestOtp(
-        email: payload.email,
-        fullName: payload.fullName,
-      );
-      if (!mounted) {
-        return;
-      }
-      context.push(AppRouter.otpVerify, extra: payload);
+      // Navigate to Step 2 — Identity Verification
+      context.push(AppRouter.registerIdentity, extra: payload);
     } on DioException catch (e) {
       final serverError = ApiService.parseDioError(e);
       setState(() {
@@ -203,7 +198,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Điền thông tin của bạn',
+                  'Tham gia Walli — chỉ mất một phút',
                   style: AppTextStyles.subtitle.copyWith(
                     color: AppColors.textWhite.withValues(alpha: 0.8),
                   ),
@@ -220,6 +215,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Step Indicator
+              const StepIndicator(currentStep: 1),
+              const SizedBox(height: 24),
+
               // Full Name
               FadeUpAnimation(
                 delayInMilliseconds: 50,
@@ -413,7 +412,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 delayInMilliseconds: 250,
                 child: GradientButton(
                   onPressed: _handleRegister,
-                  text: 'Tạo tài khoản',
+                  text: 'Tiếp theo — Thông tin danh tính',
                 ),
               ),
               const SizedBox(height: 28),

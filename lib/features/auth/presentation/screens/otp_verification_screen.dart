@@ -81,6 +81,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         phoneNumber: widget.registerData.phoneNumber,
         password: widget.registerData.password,
         verificationCode: code,
+        identityNumber: widget.registerData.identityNumber,
+        dob: widget.registerData.dob,
+        hometown: widget.registerData.hometown,
       );
       if (!mounted) {
         return;

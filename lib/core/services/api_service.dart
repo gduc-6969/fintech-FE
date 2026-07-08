@@ -8,6 +8,10 @@ class RegisterPayload {
   final String password;
   final String? emailServerError;
   final String? phoneServerError;
+  // Identity fields (Step 2)
+  final String? identityNumber;
+  final DateTime? dob;
+  final String? hometown;
 
   const RegisterPayload({
     required this.fullName,
@@ -16,6 +20,9 @@ class RegisterPayload {
     required this.password,
     this.emailServerError,
     this.phoneServerError,
+    this.identityNumber,
+    this.dob,
+    this.hometown,
   });
 
   RegisterPayload copyWith({
@@ -25,6 +32,9 @@ class RegisterPayload {
     String? password,
     String? emailServerError,
     String? phoneServerError,
+    String? identityNumber,
+    DateTime? dob,
+    String? hometown,
   }) {
     return RegisterPayload(
       fullName: fullName ?? this.fullName,
@@ -33,6 +43,9 @@ class RegisterPayload {
       password: password ?? this.password,
       emailServerError: emailServerError ?? this.emailServerError,
       phoneServerError: phoneServerError ?? this.phoneServerError,
+      identityNumber: identityNumber ?? this.identityNumber,
+      dob: dob ?? this.dob,
+      hometown: hometown ?? this.hometown,
     );
   }
 }
@@ -210,23 +223,47 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    final response = await _dio.get(
+      '/private/api/v1/auth/me',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    if (response.data is Map<String, dynamic>) {
+      return response.data as Map<String, dynamic>;
+    }
+    throw Exception('Invalid profile response');
+  }
+
   static Future<void> register({
     required String email,
     required String fullName,
     required String phoneNumber,
     required String password,
     required String verificationCode,
+    String? identityNumber,
+    DateTime? dob,
+    String? hometown,
   }) async {
-    await _dio.post(
-      '/public/api/v1/auth/register',
-      data: {
-        'email': email,
-        'password': password,
-        'verificationCode': verificationCode,
-        'fullName': fullName,
-        'phoneNumber': _normalizeVietnamPhoneNumber(phoneNumber),
-      },
-    );
+    final body = <String, dynamic>{
+      'email': email,
+      'password': password,
+      'verificationCode': verificationCode,
+      'fullName': fullName,
+      'phoneNumber': _normalizeVietnamPhoneNumber(phoneNumber),
+    };
+    if (identityNumber != null && identityNumber.isNotEmpty) {
+      body['identityNumber'] = identityNumber;
+    }
+    if (dob != null) {
+      body['dob'] =
+          '${dob.year.toString().padLeft(4, '0')}-${dob.month.toString().padLeft(2, '0')}-${dob.day.toString().padLeft(2, '0')}';
+    }
+    if (hometown != null && hometown.isNotEmpty) {
+      body['hometown'] = hometown;
+    }
+    await _dio.post('/public/api/v1/auth/register', data: body);
   }
 
   static Future<String?> login({

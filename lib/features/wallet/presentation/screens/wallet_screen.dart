@@ -7,6 +7,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/services/api_service.dart';
 import 'package:intl/intl.dart';
 import '../../../bank_link/presentation/screens/bank_accounts_tab.dart';
+import '../../../profile/presentation/screens/profile_tab.dart';
 import 'transaction_history_tab.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -281,8 +282,12 @@ class _WalletScreenState extends State<WalletScreen> {
                 const TransactionHistoryTab(),
                 // 2: Cards Tab
                 const BankAccountsTab(),
-                // 3: Profile Tab Placeholder
-                const Center(child: Text('Tab Hồ sơ - Sắp ra mắt')),
+                // 3: Profile Tab
+                ProfileTab(
+                  onSwitchTab: (index) {
+                    setState(() => _activeNavIndex = index);
+                  },
+                ),
               ],
             ),
           ),
