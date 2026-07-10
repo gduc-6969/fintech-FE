@@ -190,6 +190,15 @@ class ApiService {
     throw Exception('Invalid link response');
   }
 
+  static Future<void> unlinkBankAccount(String id) async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    await _dio.delete(
+      '/private/api/v1/wallet/bank-accounts/$id',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
   static Future<void> requestOtp({
     required String email,
     required String fullName,

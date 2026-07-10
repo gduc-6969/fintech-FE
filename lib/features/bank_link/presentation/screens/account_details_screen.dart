@@ -76,21 +76,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
         return;
       }
 
-      // Check if already linked to any wallet (not just current user)
-      final linkedAccounts = await ApiService.getLinkedBankAccounts();
-      final bankId = match['id']?.toString();
-      final alreadyLinked = linkedAccounts.any((la) => la['bankId']?.toString() == bankId);
-      if (!mounted) return;
-
-      if (alreadyLinked) {
-        setState(() {
-          _lookupState = 'error';
-          _errorMessage = 'Tài khoản ngân hàng này đã được liên kết với một ví.';
-          _isLoading = false;
-        });
-        return;
-      }
-
       setState(() {
         _lookupState = 'found';
         _accountHolderName = match['accountHolderName'] as String? ?? 'KHÔNG XÁC ĐỊNH';

@@ -7,7 +7,8 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/services/api_service.dart';
 
 class BankAccountsTab extends StatefulWidget {
-  const BankAccountsTab({super.key});
+  final VoidCallback? onBankListChanged;
+  const BankAccountsTab({super.key, this.onBankListChanged});
 
   @override
   State<BankAccountsTab> createState() => _BankAccountsTabState();
@@ -80,6 +81,9 @@ class _BankAccountsTabState extends State<BankAccountsTab> {
     }
   }
 
+  // Tracks which bank ID is currently being unlinked (for per-card loading state)
+  String? _unlinkingId;
+
   Future<void> _showRemoveConfirmation(Map<String, dynamic> bank) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -142,20 +146,63 @@ class _BankAccountsTabState extends State<BankAccountsTab> {
       ),
     );
 
-    if (confirm == true && mounted) {
-      // NOTE: Backend doesn't have an unlink API currently.
-      // We just remove it locally for demo.
-      setState(() {
-        _linkedBanks.removeWhere((b) => b['id'] == bank['id']);
-      });
+    if (confirm != true || !mounted) return;
+
+    final id = bank['id']?.toString();
+    if (id == null) return;
+
+    setState(() => _unlinkingId = id);
+    try {
+      await ApiService.unlinkBankAccount(id);
+      if (mounted) {
+        setState(() {
+          _linkedBanks.removeWhere((b) => b['id']?.toString() == id);
+          _unlinkingId = null;
+        });
+        widget.onBankListChanged?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã hủy liên kết ${bank['name']} thành công'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        setState(() => _unlinkingId = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiService.parseDioError(e)),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _unlinkingId = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Đã xảy ra lỗi, vui lòng thử lại.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
     }
   }
+
 
   void _navigateToAddBank() async {
     final linkedCodes = _linkedBanks.map((b) => b['code'] as String).toList();
     await context.push('/select-bank', extra: linkedCodes);
     if (mounted) {
-      _loadLinkedBanks(); // refresh after potentially linking a new bank
+      _loadLinkedBanks(); // refresh the tab's own list
+      widget.onBankListChanged?.call(); // notify dashboard to refresh
     }
   }
 
@@ -315,37 +362,48 @@ class _BankAccountsTabState extends State<BankAccountsTab> {
               ],
             ),
           ),
-          // Overflow Menu
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              onSelected: (value) {
-                if (value == 'remove') {
-                  _showRemoveConfirmation(bank);
-                }
-              },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'remove',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Xóa', style: GoogleFonts.dmSans(color: AppColors.error, fontWeight: FontWeight.w500)),
-                  ],
-                ),
+          // Overflow Menu / Loading indicator
+          Builder(builder: (_) {
+            final isUnlinking = _unlinkingId == bank['id']?.toString();
+            return Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(10),
               ),
-            ],
-          ),
-          ),
+              child: isUnlinking
+                  ? const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.error,
+                      ),
+                    )
+                  : PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (value) {
+                        if (value == 'remove') {
+                          _showRemoveConfirmation(bank);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'remove',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+                              const SizedBox(width: 8),
+                              Text('Xóa', style: GoogleFonts.dmSans(color: AppColors.error, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+            );
+          }),
         ],
       ),
     );

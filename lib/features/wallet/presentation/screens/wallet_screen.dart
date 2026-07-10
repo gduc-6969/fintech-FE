@@ -281,7 +281,12 @@ class _WalletScreenState extends State<WalletScreen> {
                 // 1: History Tab
                 const TransactionHistoryTab(),
                 // 2: Cards Tab
-                const BankAccountsTab(),
+                BankAccountsTab(
+                  onBankListChanged: () {
+                    setState(() => _isLoadingBanks = true);
+                    _fetchLinkedBanks();
+                  },
+                ),
                 // 3: Profile Tab
                 ProfileTab(
                   onSwitchTab: (index) {
@@ -722,8 +727,10 @@ class _WalletScreenState extends State<WalletScreen> {
       onTap: () async {
         final linkedCodes = _banks.map((b) => b.code).toList();
         await context.push('/select-bank', extra: linkedCodes);
-        setState(() => _isLoadingBanks = true);
-        _fetchLinkedBanks();
+        if (mounted) {
+          setState(() => _isLoadingBanks = true);
+          _fetchLinkedBanks();
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
