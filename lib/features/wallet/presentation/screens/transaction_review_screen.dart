@@ -95,6 +95,7 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
           ...widget.data,
           'referenceCode': response['referenceCode'] ?? idempotencyKey,
           'createdAt': response['createdAt'] ?? DateTime.now().toIso8601String(),
+          'status': response['status'] ?? 'PENDING',
         };
         context.pushReplacement('/transaction/success', extra: successData);
       }
@@ -108,6 +109,7 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
             ...widget.data,
             'referenceCode': idempotencyKey,
             'createdAt': DateTime.now().toIso8601String(),
+            'status': 'PENDING',
           };
           context.pushReplacement('/transaction/success', extra: successData);
         }

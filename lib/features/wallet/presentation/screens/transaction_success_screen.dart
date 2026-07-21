@@ -54,6 +54,8 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> wit
     final toSub = d['toSub'] as String? ?? '';
     final refCode = d['referenceCode'] as String? ?? '-';
     final createdAt = d['createdAt'] as String?;
+    final status = (d['status'] as String?)?.toUpperCase() ?? 'PENDING';
+    final isPending = status == 'PENDING';
 
     return Scaffold(
       body: Column(
@@ -62,9 +64,11 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> wit
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 20),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
+                colors: isPending
+                    ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                    : [const Color(0xFF22C55E), const Color(0xFF16A34A)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -78,14 +82,16 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> wit
                     width: 56, height: 56,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(colors: [Color(0xFF4ADE80), Color(0xFF16A34A)]),
-                      boxShadow: [BoxShadow(color: const Color(0xFF22C55E).withOpacity(0.4), blurRadius: 20, spreadRadius: 2)],
+                      gradient: LinearGradient(colors: isPending
+                          ? [const Color(0xFFFBBF24), const Color(0xFFD97706)]
+                          : [const Color(0xFF4ADE80), const Color(0xFF16A34A)]),
+                      boxShadow: [BoxShadow(color: (isPending ? const Color(0xFFF59E0B) : const Color(0xFF22C55E)).withOpacity(0.4), blurRadius: 20, spreadRadius: 2)],
                     ),
-                    child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 36),
+                    child: Icon(isPending ? Icons.hourglass_top_rounded : Icons.check_circle_rounded, color: Colors.white, size: 36),
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text('GIAO DỊCH THÀNH CÔNG', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.85), letterSpacing: 1.2)),
+                Text(isPending ? 'GIAO DỊCH ĐANG XỬ LÝ' : 'GIAO DỊCH THÀNH CÔNG', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.85), letterSpacing: 1.2)),
                 const SizedBox(height: 4),
                 Text(_formatCurrency(amount), style: GoogleFonts.dmSans(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 12),

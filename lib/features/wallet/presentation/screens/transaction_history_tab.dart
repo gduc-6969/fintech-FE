@@ -136,12 +136,19 @@ class _TransactionHistoryTabState extends State<TransactionHistoryTab> {
     }
 
     Color statusColor;
+    String statusLabel;
     if (statusStr == 'SUCCESS') {
       statusColor = AppColors.success;
+      statusLabel = 'THÀNH CÔNG';
     } else if (statusStr == 'PENDING') {
       statusColor = const Color(0xFFF59E0B);
+      statusLabel = 'ĐANG XỬ LÝ';
+    } else if (statusStr == 'TIMED_OUT') {
+      statusColor = const Color(0xFF8B5CF6);
+      statusLabel = 'HẾT THỜI GIAN';
     } else {
       statusColor = AppColors.error;
+      statusLabel = 'THẤT BẠI';
     }
 
     final amountDisplay = isCredit ? '+${_formatVnd(amount.abs())}' : '-${_formatVnd(amount.abs())}';
@@ -196,7 +203,7 @@ class _TransactionHistoryTabState extends State<TransactionHistoryTab> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(statusStr, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
+                Text(statusLabel, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
               ],
             ),
             const SizedBox(width: 8),

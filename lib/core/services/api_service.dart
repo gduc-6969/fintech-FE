@@ -447,7 +447,7 @@ class ApiService {
     if (exception.type == DioExceptionType.connectionTimeout ||
         exception.type == DioExceptionType.receiveTimeout ||
         exception.type == DioExceptionType.sendTimeout) {
-      return 'Request timed out. Please try again.';
+      return 'Yêu cầu hết thời gian chờ. Vui lòng thử lại.';
     }
 
     final responseData = exception.response?.data;
