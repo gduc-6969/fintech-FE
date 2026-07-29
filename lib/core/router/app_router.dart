@@ -21,6 +21,7 @@ import '../../features/wallet/presentation/screens/transaction_detail_screen.dar
 import '../../features/bank_link/presentation/screens/select_bank_screen.dart';
 import '../../features/bank_link/presentation/screens/account_details_screen.dart';
 import '../../features/bank_link/presentation/screens/bank_link_success_screen.dart';
+import '../../features/wallet/presentation/screens/verify_transaction_screen.dart';
 class AppRouter {
   AppRouter._();
 
@@ -139,6 +140,13 @@ class AppRouter {
         builder: (context, state) {
           final tx = state.extra as Map<String, dynamic>;
           return TransactionDetailScreen(transaction: tx);
+        },
+      ),
+      GoRoute(
+        path: '/transaction/verify',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return VerifyTransactionScreen(data: data);
         },
       ),
     ],
