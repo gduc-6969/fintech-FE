@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
 class RegisterPayload {
@@ -53,7 +54,7 @@ class RegisterPayload {
 class ApiService {
   ApiService._();
 
-  static const String _baseUrl = 'http://172.17.154.72:8082/fintech-service';
+  static const String _baseUrl = 'http://13.213.32.9:8082/fintech-service';
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _baseUrl,
@@ -66,7 +67,17 @@ class ApiService {
         'Accept': 'application/json',
       },
     ),
-  );
+  )..interceptors.add(
+      LogInterceptor(
+        request: true,
+        requestHeader: false,
+        requestBody: true,
+        responseHeader: false,
+        responseBody: true,
+        error: true,
+        logPrint: (object) => debugPrint('[API] $object'),
+      ),
+    );
 
   static String? authToken;
   static String? currentUserFullName;
