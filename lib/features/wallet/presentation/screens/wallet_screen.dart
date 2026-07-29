@@ -61,6 +61,14 @@ class _WalletScreenState extends State<WalletScreen> {
   List<_MockBank> _banks = [];
   bool _isLoadingBanks = true;
 
+  Timer? _pendingPollTimer;
+
+  @override
+  void dispose() {
+    _pendingPollTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -161,11 +169,102 @@ class _WalletScreenState extends State<WalletScreen> {
             }).toList();
             _txState = _TxState.loaded;
           });
+          _checkAndStartPendingPoll();
         }
       }
     } catch (e) {
       if (mounted) setState(() => _txState = _TxState.error);
     }
+  }
+
+  void _checkAndStartPendingPoll() {
+    final hasPending = _transactions.any((tx) => tx.status == _TxStatus.pending);
+    if (hasPending) {
+      _startPendingPoll();
+    } else {
+      _pendingPollTimer?.cancel();
+    }
+  }
+
+  void _startPendingPoll() {
+    if (_pendingPollTimer != null && _pendingPollTimer!.isActive) return;
+    _pendingPollTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
+      if (!mounted) { t.cancel(); return; }
+      await _fetchTransactionsSilent();
+      await _fetchWalletSilent();
+    });
+  }
+
+  Future<void> _fetchTransactionsSilent() async {
+    try {
+      final txs = await ApiService.getTransactions();
+      if (mounted && txs.isNotEmpty) {
+        setState(() {
+          _transactions = txs.map((tx) {
+            final typeStr = (tx['type'] as String?)?.toUpperCase() ?? 'BANK_TO_WALLET';
+            final statusStr = (tx['status'] as String?)?.toUpperCase() ?? 'SUCCESS';
+            
+            _TxType type = _TxType.transfer;
+            if (typeStr == 'BANK_TO_WALLET') type = _TxType.deposit;
+            else if (typeStr == 'WALLET_TO_BANK') type = _TxType.withdraw;
+            
+            _TxStatus status = _TxStatus.success;
+            if (statusStr == 'PENDING') status = _TxStatus.pending;
+            else if (statusStr == 'FAILED') status = _TxStatus.failed;
+
+            final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+            final dateStr = tx['updatedAt'] as String? ?? '';
+            
+            String formattedDate = dateStr;
+            try {
+              if (dateStr.length >= 10) {
+                final dt = DateTime.parse(dateStr).toLocal();
+                final now = DateTime.now();
+                if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+                  formattedDate = 'Hôm nay';
+                } else if (dt.year == now.year && dt.month == now.month && dt.day == now.day - 1) {
+                  formattedDate = 'Hôm qua';
+                } else {
+                  formattedDate = DateFormat('MMM d').format(dt);
+                }
+              }
+            } catch (_) {}
+
+            bool isPositive = amount > 0;
+            if (type == _TxType.deposit) isPositive = true;
+            else if (type == _TxType.withdraw) isPositive = false;
+            else if (type == _TxType.transfer) {
+               if (typeStr == 'WALLET_TRANSFER_IN') isPositive = true;
+               else if (typeStr == 'WALLET_TRANSFER_OUT') isPositive = false;
+               else isPositive = amount > 0;
+            }
+            
+            String label = typeStr;
+            if (type == _TxType.deposit) label = 'Nạp tiền';
+            else if (type == _TxType.withdraw) label = 'Rút tiền';
+            else if (type == _TxType.transfer) label = 'Chuyển tiền';
+
+            return _MockTx(type, label, formattedDate, isPositive ? amount.abs() : -amount.abs(), status, tx);
+          }).toList();
+        });
+        final stillHasPending = _transactions.any((tx) => tx.status == _TxStatus.pending);
+        if (!stillHasPending) {
+          _pendingPollTimer?.cancel();
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchWalletSilent() async {
+    try {
+      final wallet = await ApiService.getWallet();
+      if (mounted) {
+        setState(() {
+          _balance = (wallet['availableBalance'] as num?)?.toDouble() ?? 0.0;
+          _isLoadingBalance = false;
+        });
+      }
+    } catch (_) {}
   }
 
 
