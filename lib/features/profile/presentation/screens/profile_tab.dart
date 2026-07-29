@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/services/api_service.dart';
+import '../widgets/pin_management_sheet.dart';
 
 class ProfileTab extends StatefulWidget {
   /// Callback to switch a sibling tab in the parent WalletScreen's IndexedStack.
@@ -20,6 +21,7 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   bool _isLoading = true;
   bool _isLoggingOut = false;
+  bool _hasPin = false;
   Map<String, dynamic>? _profile;
   String? _errorMessage;
 
@@ -36,9 +38,15 @@ class _ProfileTabState extends State<ProfileTab> {
     });
     try {
       final data = await ApiService.getUserProfile();
+      bool hasPin = false;
+      try {
+        hasPin = await ApiService.getPinStatus();
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _profile = data;
+          _hasPin = hasPin;
           _isLoading = false;
         });
       }
@@ -518,6 +526,15 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _securityRow(
+            icon: Icons.key_rounded,
+            label: _hasPin ? 'Đổi mã PIN' : 'Tạo mã PIN',
+            subtitle: _hasPin
+                ? 'Cập nhật mã PIN giao dịch'
+                : 'Đặt mã PIN để xác thực giao dịch',
+            onTap: _openPinManagementSheet,
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          _securityRow(
             icon: Icons.lock_outline_rounded,
             label: 'Đổi mật khẩu',
             subtitle: 'Cập nhật thông tin bảo mật',
@@ -526,6 +543,18 @@ class _ProfileTabState extends State<ProfileTab> {
         ],
       ),
     );
+  }
+
+  Future<void> _openPinManagementSheet() async {
+    final email = _profile?['email']?.toString() ?? '';
+    final success = await PinManagementSheet.show(
+      context,
+      hasPin: _hasPin,
+      userEmail: email,
+    );
+    if (success == true && mounted) {
+      setState(() => _hasPin = true);
+    }
   }
 
   Widget _securityRow({

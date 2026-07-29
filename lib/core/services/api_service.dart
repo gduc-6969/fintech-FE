@@ -373,6 +373,26 @@ class ApiService {
     return false;
   }
 
+  static Future<void> requestCreatePin(String pin) async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    await _dio.post(
+      '/private/api/v1/wallet/pin/request',
+      data: {'pin': pin},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
+  static Future<void> confirmCreatePin(String otpCode) async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    await _dio.post(
+      '/private/api/v1/wallet/pin/confirm',
+      data: {'otpCode': otpCode},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
   static Future<void> requestTransactionOtp() async {
     final token = authToken;
     if (token == null) throw Exception('Not authenticated');
