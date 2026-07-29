@@ -121,6 +121,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     } else if (statusStr == 'PENDING') {
       statusColor = const Color(0xFFF59E0B);
       statusLabel = 'ĐANG XỬ LÝ';
+    } else if (statusStr == 'TIMED_OUT') {
+      statusColor = const Color(0xFF8B5CF6);
+      statusLabel = 'HẾT THỜI GIAN';
     } else {
       statusColor = AppColors.error;
       statusLabel = 'THẤT BẠI';
@@ -216,6 +219,30 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       ],
                     ),
                   ),
+                  if (statusStr == 'TIMED_OUT') ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded, color: Color(0xFF8B5CF6), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Giao dịch đã hết thời gian xử lý. Số tiền đã được hoàn trả về ví của bạn.',
+                              style: GoogleFonts.dmSans(fontSize: 12, color: const Color(0xFF8B5CF6)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   
                   // Details Card

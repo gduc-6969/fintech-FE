@@ -358,20 +358,60 @@ class ApiService {
 
   // ── Transaction APIs ──────────────────────────────────────────────────────
 
+  // ── Wallet PIN & OTP ──────────────────────────────────────────────────────
+
+  static Future<bool> getPinStatus() async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    final response = await _dio.get(
+      '/private/api/v1/wallet/pin/status',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    if (response.data is Map<String, dynamic>) {
+      return (response.data as Map<String, dynamic>)['hasPin'] == true;
+    }
+    return false;
+  }
+
+  static Future<void> requestTransactionOtp() async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    await _dio.post(
+      '/private/api/v1/wallet/pin/request-transaction-otp',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
+  /// Returns the backend error-code string (e.g. 'INVALID_PIN', 'PIN_LOCKED').
+  static String? parseErrorCode(DioException exception) {
+    final responseData = exception.response?.data;
+    if (responseData is Map<String, dynamic>) {
+      return responseData['error']?.toString();
+    }
+    return null;
+  }
+
+  // ── Transaction APIs ──────────────────────────────────────────────────────
+
   static Future<Map<String, dynamic>> topUpFromBank({
     required String linkedBankAccountId,
     required double amount,
     required String idempotencyKey,
+    String? pin,
+    String? otpCode,
   }) async {
     final token = authToken;
     if (token == null) throw Exception('Not authenticated');
+    final body = <String, dynamic>{
+      'linkedBankAccountId': linkedBankAccountId,
+      'amount': amount.truncate(),
+      'idempotencyKey': idempotencyKey,
+    };
+    if (pin != null) body['pin'] = pin;
+    if (otpCode != null) body['otpCode'] = otpCode;
     final response = await _dio.post(
       '/private/api/v1/wallet/bank-topup',
-      data: {
-        'linkedBankAccountId': linkedBankAccountId,
-        'amount': amount.truncate(),
-        'idempotencyKey': idempotencyKey,
-      },
+      data: body,
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
@@ -384,16 +424,21 @@ class ApiService {
     required String linkedBankAccountId,
     required double amount,
     required String idempotencyKey,
+    String? pin,
+    String? otpCode,
   }) async {
     final token = authToken;
     if (token == null) throw Exception('Not authenticated');
+    final body = <String, dynamic>{
+      'linkedBankAccountId': linkedBankAccountId,
+      'amount': amount.truncate(),
+      'idempotencyKey': idempotencyKey,
+    };
+    if (pin != null) body['pin'] = pin;
+    if (otpCode != null) body['otpCode'] = otpCode;
     final response = await _dio.post(
       '/private/api/v1/wallet/bank-withdraw',
-      data: {
-        'linkedBankAccountId': linkedBankAccountId,
-        'amount': amount.truncate(),
-        'idempotencyKey': idempotencyKey,
-      },
+      data: body,
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
@@ -406,16 +451,21 @@ class ApiService {
     required String recipientPhoneNumber,
     required double amount,
     required String idempotencyKey,
+    String? pin,
+    String? otpCode,
   }) async {
     final token = authToken;
     if (token == null) throw Exception('Not authenticated');
+    final body = <String, dynamic>{
+      'recipientPhoneNumber': _normalizeVietnamPhoneNumber(recipientPhoneNumber),
+      'amount': amount.truncate(),
+      'idempotencyKey': idempotencyKey,
+    };
+    if (pin != null) body['pin'] = pin;
+    if (otpCode != null) body['otpCode'] = otpCode;
     final response = await _dio.post(
       '/private/api/v1/wallet/transfer',
-      data: {
-        'recipientPhoneNumber': _normalizeVietnamPhoneNumber(recipientPhoneNumber),
-        'amount': amount.truncate(),
-        'idempotencyKey': idempotencyKey,
-      },
+      data: body,
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
@@ -447,7 +497,7 @@ class ApiService {
     if (exception.type == DioExceptionType.connectionTimeout ||
         exception.type == DioExceptionType.receiveTimeout ||
         exception.type == DioExceptionType.sendTimeout) {
-      return 'Request timed out. Please try again.';
+      return 'Yêu cầu hết thời gian chờ. Vui lòng thử lại.';
     }
 
     final responseData = exception.response?.data;
