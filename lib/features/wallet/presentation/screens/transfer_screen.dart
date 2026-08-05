@@ -8,7 +8,14 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
 
 class TransferScreen extends StatefulWidget {
-  const TransferScreen({super.key});
+  final String? initialPhone;
+  final String? initialRecipientName;
+
+  const TransferScreen({
+    super.key,
+    this.initialPhone,
+    this.initialRecipientName,
+  });
 
   @override
   State<TransferScreen> createState() => _TransferScreenState();
@@ -37,6 +44,17 @@ class _TransferScreenState extends State<TransferScreen> {
   void initState() {
     super.initState();
     _fetchBalance();
+
+    // Pre-fill from QR scan
+    if (widget.initialPhone != null && widget.initialPhone!.isNotEmpty) {
+      _phoneCtrl.text = widget.initialPhone!;
+      if (widget.initialRecipientName != null &&
+          widget.initialRecipientName!.isNotEmpty) {
+        _lookupState = 'found';
+        _recipientFullName = widget.initialRecipientName;
+      }
+    }
+
     _phoneCtrl.addListener(() {
       // Reset lookup whenever phone changes
       if (_lookupState != 'initial' && _lookupState != 'loading') {

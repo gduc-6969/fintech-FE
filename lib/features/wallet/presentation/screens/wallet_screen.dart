@@ -366,27 +366,25 @@ class _WalletScreenState extends State<WalletScreen> {
                 // 0: Home Tab
                 CustomScrollView(
                   slivers: [
-                    // ── Section 1 + 2: Header + Balance Card (one Stack) ──
                     SliverToBoxAdapter(child: _buildHeaderSection(context)),
-                    // ── Section 3: Quick Actions ──
                     SliverToBoxAdapter(child: _buildQuickActions()),
-                    // ── Section 4: Linked Banks ──
                     SliverToBoxAdapter(child: _buildLinkedBanks()),
-                    // ── Section 5: Recent Transactions ──
                     SliverToBoxAdapter(child: _buildRecentTransactions()),
                     const SliverToBoxAdapter(child: SizedBox(height: 24)),
                   ],
                 ),
                 // 1: History Tab
                 const TransactionHistoryTab(),
-                // 2: Cards Tab
+                // 2: Scan Tab (opens full-screen scanner via push)
+                const _ScanTabPlaceholder(),
+                // 3: Cards Tab
                 BankAccountsTab(
                   onBankListChanged: () {
                     setState(() => _isLoadingBanks = true);
                     _fetchLinkedBanks();
                   },
                 ),
-                // 3: Profile Tab
+                // 4: Profile Tab
                 ProfileTab(
                   onSwitchTab: (index) {
                     setState(() => _activeNavIndex = index);
@@ -1056,6 +1054,7 @@ class _WalletScreenState extends State<WalletScreen> {
     const tabs = [
       (Icons.home_rounded, Icons.home_outlined, 'Trang chủ'),
       (Icons.history_rounded, Icons.history_outlined, 'Lịch sử'),
+      (Icons.qr_code_scanner_rounded, Icons.qr_code_scanner, 'Quét QR'),
       (Icons.credit_card_rounded, Icons.credit_card_outlined, 'Thẻ'),
       (Icons.person_rounded, Icons.person_outlined, 'Hồ sơ'),
     ];
@@ -1076,8 +1075,15 @@ class _WalletScreenState extends State<WalletScreen> {
               final tab = tabs[i];
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _activeNavIndex = i),
                   behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    // Scan tab (index 2) → push full-screen scanner
+                    if (i == 2) {
+                      context.push('/scan-qr');
+                    } else {
+                      setState(() => _activeNavIndex = i);
+                    }
+                  },
                   child: Column(
                     children: [
                       // Top border indicator for active tab
@@ -1122,6 +1128,22 @@ class _WalletScreenState extends State<WalletScreen> {
 
   String _formatVnd(num amount) {
     return NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(amount);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scan Tab Placeholder — never actually shown; the Scan tap pushes the route
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ScanTabPlaceholder extends StatelessWidget {
+  const _ScanTabPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    // This widget should never be visible because tapping the Scan tab always
+    // pushes /scan-qr instead of switching the IndexedStack index. If it ever
+    // renders, show a safe empty state.
+    return const SizedBox.shrink();
   }
 }
 

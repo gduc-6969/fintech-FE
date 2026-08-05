@@ -54,7 +54,7 @@ class RegisterPayload {
 class ApiService {
   ApiService._();
 
-  static const String _baseUrl = 'http://13.213.32.9:8082/fintech-service';
+  static const String _baseUrl = 'http://172.17.154.72:8082/fintech-service';
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _baseUrl,
@@ -522,6 +522,38 @@ class ApiService {
       return data['fullName']?.toString() ?? 'Wallet User';
     }
     throw Exception('Invalid recipient lookup response');
+  }
+
+  /// Fetch the current user's own QR code (PNG as Base64).
+  /// Returns a map with keys: qrBase64, phoneNumber, fullName.
+  static Future<Map<String, dynamic>> getWalletQr() async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    final response = await _dio.get(
+      '/private/api/v1/wallet/qr',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    if (response.data is Map<String, dynamic>) {
+      return response.data as Map<String, dynamic>;
+    }
+    throw Exception('Invalid QR response');
+  }
+
+  /// Decode a raw QR content string to get recipient info.
+  /// [qrContent] is the raw text read from scanning a QR code.
+  /// Returns a map with keys: phoneNumber, fullName.
+  static Future<Map<String, dynamic>> decodeWalletQr(String qrContent) async {
+    final token = authToken;
+    if (token == null) throw Exception('Not authenticated');
+    final response = await _dio.post(
+      '/private/api/v1/wallet/qr/decode',
+      data: {'qrContent': qrContent},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    if (response.data is Map<String, dynamic>) {
+      return response.data as Map<String, dynamic>;
+    }
+    throw Exception('Invalid QR decode response');
   }
 
   static String parseDioError(DioException exception) {

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/api_service.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
@@ -22,6 +21,8 @@ import '../../features/bank_link/presentation/screens/select_bank_screen.dart';
 import '../../features/bank_link/presentation/screens/account_details_screen.dart';
 import '../../features/bank_link/presentation/screens/bank_link_success_screen.dart';
 import '../../features/wallet/presentation/screens/verify_transaction_screen.dart';
+import '../../features/wallet/presentation/screens/scan_qr_screen.dart';
+import '../../features/wallet/presentation/screens/my_qr_screen.dart';
 class AppRouter {
   AppRouter._();
 
@@ -34,6 +35,8 @@ class AppRouter {
   static const String resetPasswordSuccess = '/reset-password-success';
   static const String success = '/success';
   static const String wallet = '/wallet';
+  static const String scanQr = '/scan-qr';
+  static const String myQr = '/my-qr';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -120,7 +123,19 @@ class AppRouter {
           return WithdrawSelectBankScreen(amount: (data['amount'] as num).toDouble());
         },
       ),
-      GoRoute(path: '/transfer', builder: (context, state) => const TransferScreen()),
+      GoRoute(
+        path: '/transfer',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is Map<String, dynamic>) {
+            return TransferScreen(
+              initialPhone: extra['initialPhone'] as String?,
+              initialRecipientName: extra['initialRecipientName'] as String?,
+            );
+          }
+          return const TransferScreen();
+        },
+      ),
       GoRoute(
         path: '/transaction/review',
         builder: (context, state) {
@@ -148,6 +163,14 @@ class AppRouter {
           final data = state.extra as Map<String, dynamic>;
           return VerifyTransactionScreen(data: data);
         },
+      ),
+      GoRoute(
+        path: '/scan-qr',
+        builder: (context, state) => const ScanQrScreen(),
+      ),
+      GoRoute(
+        path: '/my-qr',
+        builder: (context, state) => const MyQrScreen(),
       ),
     ],
   );
