@@ -6,7 +6,7 @@ import 'dart:ui' as ui;
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:gal/gal.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
@@ -98,17 +98,14 @@ class _MyQrScreenState extends State<MyQrScreen> {
 
       final Uint8List pngBytes = byteData.buffer.asUint8List();
 
-      final result = await ImageGallerySaver.saveImage(
+      await Gal.putImageBytes(
         pngBytes,
-        quality: 100,
         name: 'WALLI_QR_${DateTime.now().millisecondsSinceEpoch}',
       );
 
       if (!mounted) return;
 
-      final saved = result['isSuccess'] == true ||
-          (result['filePath'] != null &&
-              result['filePath'].toString().isNotEmpty);
+      const saved = true;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

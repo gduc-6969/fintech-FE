@@ -54,7 +54,7 @@ class RegisterPayload {
 class ApiService {
   ApiService._();
 
-  static const String _baseUrl = 'http://192.168.2.202:8082/fintech-service';
+  static const String _baseUrl = 'http://10.0.2.2:8082/fintech-service';
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _baseUrl,
