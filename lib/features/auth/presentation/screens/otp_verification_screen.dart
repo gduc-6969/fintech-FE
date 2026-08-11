@@ -91,15 +91,19 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       context.go(AppRouter.success);
     } on DioException catch (e) {
       final errorMessage = ApiService.parseDioError(e);
-      if (_isEmailError(errorMessage) || _isPhoneError(errorMessage)) {
+      final errorCode = ApiService.parseErrorCode(e);
+      if (errorCode == 'EMAIL_ALREADY_EXISTS' ||
+          errorCode == 'PHONE_NUMBER_ALREADY_EXISTS' ||
+          _isEmailAlreadyExistsError(errorMessage) ||
+          _isPhoneAlreadyExistsError(errorMessage)) {
         if (!mounted) {
           return;
         }
         context.go(
           AppRouter.register,
           extra: widget.registerData.copyWith(
-            emailServerError: _isEmailError(errorMessage) ? errorMessage : null,
-            phoneServerError: _isPhoneError(errorMessage) ? errorMessage : null,
+            emailServerError: (errorCode == 'EMAIL_ALREADY_EXISTS' || _isEmailAlreadyExistsError(errorMessage)) ? errorMessage : null,
+            phoneServerError: (errorCode == 'PHONE_NUMBER_ALREADY_EXISTS' || _isPhoneAlreadyExistsError(errorMessage)) ? errorMessage : null,
           ),
         );
         return;
@@ -114,13 +118,31 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
-  bool _isEmailError(String error) {
-    return error.toLowerCase().contains('email');
+  bool _isEmailAlreadyExistsError(String error) {
+    final lower = error.toLowerCase();
+    if (lower.contains('xac thuc') ||
+        lower.contains('xác thực') ||
+        lower.contains('verification')) {
+      return false;
+    }
+    return lower.contains('email') &&
+        (lower.contains('ton tai') ||
+            lower.contains('tồn tại') ||
+            lower.contains('already') ||
+            lower.contains('da duoc dang ky') ||
+            lower.contains('đã được đăng ký'));
   }
 
-  bool _isPhoneError(String error) {
-    final lowerError = error.toLowerCase();
-    return lowerError.contains('phone') || lowerError.contains('number');
+  bool _isPhoneAlreadyExistsError(String error) {
+    final lower = error.toLowerCase();
+    return (lower.contains('phone') ||
+            lower.contains('dien thoai') ||
+            lower.contains('điện thoại')) &&
+        (lower.contains('ton tai') ||
+            lower.contains('tồn tại') ||
+            lower.contains('already') ||
+            lower.contains('da duoc dang ky') ||
+            lower.contains('đã được đăng ký'));
   }
 
   @override

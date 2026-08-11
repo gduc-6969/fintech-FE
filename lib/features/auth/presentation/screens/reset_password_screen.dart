@@ -165,11 +165,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       final message = ApiService.parseDioError(e);
+      final errorCode = ApiService.parseErrorCode(e);
       final lowerMsg = message.toLowerCase();
       // If the OTP was wrong, let the user go back and re-enter it.
-      final isInvalidOtp = lowerMsg.contains('reset code') ||
+      final isInvalidOtp = errorCode == 'INVALID_PASSWORD_RESET_CODE' ||
+          lowerMsg.contains('reset code') ||
           lowerMsg.contains('verification') ||
           lowerMsg.contains('expired') ||
+          lowerMsg.contains('xac thuc') ||
+          lowerMsg.contains('xác thực') ||
+          lowerMsg.contains('het han') ||
+          lowerMsg.contains('hết hạn') ||
           e.response?.statusCode == 400;
       setState(() {
         _isLoading = false;

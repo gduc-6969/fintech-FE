@@ -116,14 +116,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneNumber: payload.phoneNumber,
         password: payload.password,
       );
+      if (!mounted) return;
       // Navigate to Step 2 — Identity Verification
       context.push(AppRouter.registerIdentity, extra: payload);
     } on DioException catch (e) {
       final serverError = ApiService.parseDioError(e);
+      final errorCode = ApiService.parseErrorCode(e);
       setState(() {
-        if (_isEmailError(serverError)) {
+        if (errorCode == 'EMAIL_ALREADY_EXISTS' ||
+            (errorCode == null && _isEmailError(serverError))) {
           _emailServerError = serverError;
-        } else if (_isPhoneError(serverError)) {
+        } else if (errorCode == 'PHONE_NUMBER_ALREADY_EXISTS' ||
+            (errorCode == null && _isPhoneError(serverError))) {
           _phoneServerError = serverError;
         } else {
           _emailServerError = serverError;
@@ -136,12 +140,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   bool _isEmailError(String error) {
-    return error.toLowerCase().contains('email');
+    final lower = error.toLowerCase();
+    if (lower.contains('xac thuc') ||
+        lower.contains('xác thực') ||
+        lower.contains('verification')) {
+      return false;
+    }
+    return lower.contains('email');
   }
 
   bool _isPhoneError(String error) {
-    final lowerError = error.toLowerCase();
-    return lowerError.contains('phone') || lowerError.contains('number');
+    final lower = error.toLowerCase();
+    return lower.contains('phone') ||
+        lower.contains('dien thoai') ||
+        lower.contains('điện thoại');
   }
 
   Widget _buildCriteriaItem(String label, bool isValid) {

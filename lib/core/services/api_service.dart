@@ -235,8 +235,13 @@ class ApiService {
         verificationCode: '__REGISTRATION_PRECHECK__',
       );
     } on DioException catch (exception) {
+      final errorCode = parseErrorCode(exception);
       final message = parseDioError(exception).toLowerCase();
-      if (message.contains('verification code')) {
+      if (errorCode == 'INVALID_VERIFICATION_CODE' ||
+          message.contains('verification code') ||
+          message.contains('xac thuc') ||
+          message.contains('xác thực') ||
+          message.contains('verification')) {
         return;
       }
       rethrow;
