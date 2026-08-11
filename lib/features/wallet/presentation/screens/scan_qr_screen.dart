@@ -10,7 +10,7 @@ import '../../../../core/services/api_service.dart';
 
 // ── Constants shared by the overlay painter and MobileScanner scanWindow ──────
 const double _kReticleSize = 270.0;
-const double _kReticleRadius = 20.0;
+const double _kReticleRadius = 8.0;
 
 class ScanQrScreen extends StatefulWidget {
   const ScanQrScreen({super.key});
@@ -480,26 +480,20 @@ class _ScanOverlayPainter extends CustomPainter {
   }
 
   void _drawCornerBrackets(Canvas canvas, Rect r) {
-    // Main white bracket lines
     final bracketP = Paint()
       ..color = Colors.white
       ..strokeWidth = _bracketStroke
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.square;
+      ..strokeCap = StrokeCap.square
+      ..strokeJoin = StrokeJoin.miter;
 
-    final cr = _kReticleRadius;
-    final bl = _bracketLen;
+    const bl = _bracketLen;
 
-    // Each corner: two straight lines joined at a rounded arc
+    // Simple sharp ┌ ┐ └ ┘ brackets — two lines meeting at 90°
     void corner(Offset origin, double xDir, double yDir) {
       final path = Path()
         ..moveTo(origin.dx + xDir * bl, origin.dy)
-        ..lineTo(origin.dx + xDir * cr, origin.dy)
-        ..arcToPoint(
-          Offset(origin.dx, origin.dy + yDir * cr),
-          radius: const Radius.circular(_kReticleRadius),
-          clockwise: xDir > 0 ? yDir > 0 : yDir < 0,
-        )
+        ..lineTo(origin.dx, origin.dy)
         ..lineTo(origin.dx, origin.dy + yDir * bl);
       canvas.drawPath(path, bracketP);
     }
