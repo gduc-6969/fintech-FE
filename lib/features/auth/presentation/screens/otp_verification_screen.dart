@@ -26,6 +26,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final _focusNode = FocusNode();
 
   bool _isExpired = false;
+  bool _isLoading = false;
   int _attemptsRemaining = 5;
   String? _errorMessage;
 
@@ -37,7 +38,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _handleResend() async {
+    if (_isLoading) return;
+
     setState(() {
+      _isLoading = true;
       _errorMessage = null;
       _attemptsRemaining = 5;
       _isExpired = false;
@@ -58,13 +62,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         ),
       );
     } on DioException catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = ApiService.parseDioError(e);
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _handleVerify() async {
+    if (_isLoading) return;
+
     final code = _otpController.text.trim();
 
     if (code.length < 6) {
@@ -73,6 +86,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       });
       return;
     }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
       await ApiService.register(
@@ -90,15 +108,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       }
       context.go(AppRouter.success);
     } on DioException catch (e) {
+      if (!mounted) return;
       final errorMessage = ApiService.parseDioError(e);
       final errorCode = ApiService.parseErrorCode(e);
       if (errorCode == 'EMAIL_ALREADY_EXISTS' ||
           errorCode == 'PHONE_NUMBER_ALREADY_EXISTS' ||
           _isEmailAlreadyExistsError(errorMessage) ||
           _isPhoneAlreadyExistsError(errorMessage)) {
-        if (!mounted) {
-          return;
-        }
         context.go(
           AppRouter.register,
           extra: widget.registerData.copyWith(
@@ -115,6 +131,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           _attemptsRemaining--;
         }
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -281,6 +303,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     delayInMilliseconds: 100,
                     child: Center(
                       child: Pinput(
+                        enabled: !_isLoading,
                         length: 6,
                         controller: _otpController,
                         focusNode: _focusNode,
@@ -293,7 +316,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         },
                         errorText: '',
                         showCursor: true,
-                        onCompleted: (pin) => _handleVerify(),
+                        onCompleted: (pin) {
+                          if (!_isLoading) {
+                            _handleVerify();
+                          }
+                        },
                       ),
                     ),
                   ),
@@ -331,7 +358,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   style: AppTextStyles.bodySecondary,
                                 ),
                                 TextButton(
-                                  onPressed: _handleResend,
+                                  onPressed: _isLoading ? null : _handleResend,
                                   child: Text(
                                     'Gửi lại OTP',
                                     style: AppTextStyles.linkText,
@@ -373,10 +400,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   FadeUpAnimation(
                     delayInMilliseconds: 220,
                     child: GradientButton(
-                      onPressed: (_attemptsRemaining > 0 && !_isExpired)
+                      onPressed: (_attemptsRemaining > 0 && !_isExpired && !_isLoading)
                           ? _handleVerify
                           : null,
-                      text: 'Xác thực mã',
+                      text: _isLoading ? 'Đang xác thực...' : 'Xác thực mã',
                     ),
                   ),
                   const SizedBox(height: 40),

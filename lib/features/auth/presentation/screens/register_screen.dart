@@ -37,6 +37,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _hasUppercase = false;
   bool _hasSpecialChar = false;
 
+  bool _isLoading = false;
   String? _emailServerError;
   String? _phoneServerError;
 
@@ -93,6 +94,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
+    if (_isLoading) return;
+
     setState(() {
       _emailServerError = null;
       _phoneServerError = null;
@@ -101,6 +104,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
+    setState(() => _isLoading = true);
 
     final payload = RegisterPayload(
       fullName: _fullNameController.text.trim(),
@@ -120,6 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Navigate to Step 2 — Identity Verification
       context.push(AppRouter.registerIdentity, extra: payload);
     } on DioException catch (e) {
+      if (!mounted) return;
       final serverError = ApiService.parseDioError(e);
       final errorCode = ApiService.parseErrorCode(e);
       setState(() {
@@ -136,6 +142,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _formKey.currentState?.validate();
       });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -423,8 +433,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               FadeUpAnimation(
                 delayInMilliseconds: 250,
                 child: GradientButton(
-                  onPressed: _handleRegister,
-                  text: 'Tiếp theo — Thông tin danh tính',
+                  onPressed: _isLoading ? null : _handleRegister,
+                  text: _isLoading
+                      ? 'Đang kiểm tra...'
+                      : 'Tiếp theo — Thông tin danh tính',
                 ),
               ),
               const SizedBox(height: 28),

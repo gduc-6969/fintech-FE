@@ -5,6 +5,16 @@ allprojects {
     }
 }
 
+gradle.taskGraph.whenReady {
+    allTasks.filter { it.name.contains("strip", ignoreCase = true) && it.name.contains("DebugSymbols", ignoreCase = true) }.forEach { task ->
+        task.inputs.files.forEach { file ->
+            if (!file.exists()) {
+                file.mkdirs()
+            }
+        }
+    }
+}
+
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")
