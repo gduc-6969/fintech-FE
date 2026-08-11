@@ -351,7 +351,7 @@ class _ScanQrScreenState extends State<ScanQrScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Point your camera at a QR code to pay.',
+            'Hướng camera vào mã QR để thanh toán.',
             style: GoogleFonts.dmSans(
                 color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
             textAlign: TextAlign.center,
@@ -362,7 +362,7 @@ class _ScanQrScreenState extends State<ScanQrScreen>
               Expanded(
                 child: _PillButton(
                   icon: Icons.image_outlined,
-                  label: 'Upload from gallery',
+                  label: 'Tải từ thư viện',
                   onTap: () {/* gallery picker — future */},
                 ),
               ),
@@ -370,7 +370,7 @@ class _ScanQrScreenState extends State<ScanQrScreen>
               Expanded(
                 child: _PillButton(
                   icon: Icons.qr_code_2_rounded,
-                  label: 'My QR code',
+                  label: 'Mã QR của tôi',
                   onTap: () => context.push('/my-qr'),
                 ),
               ),
@@ -480,23 +480,17 @@ class _ScanOverlayPainter extends CustomPainter {
   }
 
   void _drawCornerBrackets(Canvas canvas, Rect r) {
+    // Main white bracket lines
     final bracketP = Paint()
       ..color = Colors.white
       ..strokeWidth = _bracketStroke
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final glowP = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
-      ..strokeWidth = _bracketStroke + 5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+      ..strokeCap = StrokeCap.square;
 
     final cr = _kReticleRadius;
     final bl = _bracketLen;
 
-    // Each corner: draw two lines meeting at the rounded corner arc
+    // Each corner: two straight lines joined at a rounded arc
     void corner(Offset origin, double xDir, double yDir) {
       final path = Path()
         ..moveTo(origin.dx + xDir * bl, origin.dy)
@@ -507,7 +501,6 @@ class _ScanOverlayPainter extends CustomPainter {
           clockwise: xDir > 0 ? yDir > 0 : yDir < 0,
         )
         ..lineTo(origin.dx, origin.dy + yDir * bl);
-      canvas.drawPath(path, glowP);
       canvas.drawPath(path, bracketP);
     }
 
