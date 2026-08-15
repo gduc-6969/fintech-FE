@@ -50,8 +50,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     try {
-      await ApiService.login(phoneNumber: phone, password: password);
+      final token = await ApiService.login(
+        phoneNumber: phone,
+        password: password,
+      );
       if (!mounted) return;
+      if (token.isEmpty || !ApiService.isAuthenticated) {
+        throw StateError('Login completed without a valid session.');
+      }
       context.go(AppRouter.wallet);
     } on DioException catch (e) {
       final message = ApiService.parseDioError(e);
@@ -68,6 +74,12 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           _serverError = message;
         }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _serverError = 'Không thể bắt đầu phiên đăng nhập. Vui lòng thử lại.';
       });
     }
   }
@@ -190,10 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text(
-                    'Quên mật khẩu?',
-                    style: AppTextStyles.linkText,
-                  ),
+                  child: Text('Quên mật khẩu?', style: AppTextStyles.linkText),
                 ),
               ),
               const SizedBox(height: 4),

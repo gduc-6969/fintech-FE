@@ -80,12 +80,14 @@ class _ProfileTabState extends State<ProfileTab> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     side: const BorderSide(color: AppColors.border),
                   ),
-                  child: Text('Ở lại',
-                      style:
-                          TextStyle(color: AppColors.textPrimary)),
+                  child: Text(
+                    'Ở lại',
+                    style: TextStyle(color: AppColors.textPrimary),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -96,10 +98,13 @@ class _ProfileTabState extends State<ProfileTab> {
                     backgroundColor: AppColors.error,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Đăng xuất',
-                      style: TextStyle(color: Colors.white)),
+                  child: const Text(
+                    'Đăng xuất',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ),
             ],
@@ -174,8 +179,10 @@ class _ProfileTabState extends State<ProfileTab> {
         actions: [
           if (!_isLoading && _errorMessage == null)
             IconButton(
-              icon: const Icon(Icons.refresh_rounded,
-                  color: AppColors.textSecondary),
+              icon: const Icon(
+                Icons.refresh_rounded,
+                color: AppColors.textSecondary,
+              ),
               onPressed: _fetchProfile,
             ),
           const SizedBox(width: 4),
@@ -184,8 +191,8 @@ class _ProfileTabState extends State<ProfileTab> {
       body: _isLoading
           ? _buildSkeleton()
           : _errorMessage != null
-              ? _buildError()
-              : _buildContent(),
+          ? _buildError()
+          : _buildContent(),
     );
   }
 
@@ -283,11 +290,17 @@ class _ProfileTabState extends State<ProfileTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded,
-                size: 56, color: AppColors.error),
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 56,
+              color: AppColors.error,
+            ),
             const SizedBox(height: 16),
-            Text(_errorMessage!,
-                style: AppTextStyles.body, textAlign: TextAlign.center),
+            Text(
+              _errorMessage!,
+              style: AppTextStyles.body,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _fetchProfile,
@@ -297,9 +310,12 @@ class _ProfileTabState extends State<ProfileTab> {
                 backgroundColor: AppColors.primaryNavy,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
               ),
             ),
           ],
@@ -449,10 +465,7 @@ class _ProfileTabState extends State<ProfileTab> {
             isMonospace: true,
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
-          _infoRow(
-            label: 'Ngày sinh',
-            value: _formatDob(dobStr),
-          ),
+          _infoRow(label: 'Ngày sinh', value: _formatDob(dobStr)),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _infoRow(label: 'Email', value: email ?? '—'),
           const Divider(height: 1, indent: 16, endIndent: 16),
@@ -535,6 +548,13 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _securityRow(
+            icon: Icons.face_retouching_natural_rounded,
+            label: 'Xác thực khuôn mặt',
+            subtitle: 'Thiết lập hoặc cập nhật cho giao dịch giá trị cao',
+            onTap: () => context.push(AppRouter.faceIdEnrollment),
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          _securityRow(
             icon: Icons.lock_outline_rounded,
             label: 'Đổi mật khẩu',
             subtitle: 'Cập nhật thông tin bảo mật',
@@ -585,16 +605,22 @@ class _ProfileTabState extends State<ProfileTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: AppTextStyles.body
-                          .copyWith(fontWeight: FontWeight.w600)),
+                  Text(
+                    label,
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(subtitle, style: AppTextStyles.caption),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textSecondary, size: 20),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -610,8 +636,10 @@ class _ProfileTabState extends State<ProfileTab> {
             ? const SizedBox(
                 width: 16,
                 height: 16,
-                child:
-                    CircularProgressIndicator(strokeWidth: 2, color: AppColors.error),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.error,
+                ),
               )
             : const Icon(Icons.logout_rounded),
         label: Text(_isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'),
@@ -619,12 +647,10 @@ class _ProfileTabState extends State<ProfileTab> {
           foregroundColor: AppColors.error,
           side: BorderSide(color: AppColors.error.withOpacity(0.5)),
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -655,9 +681,7 @@ class _TierBadge extends StatelessWidget {
     final Color bg = isAdult
         ? AppColors.indigo.withOpacity(0.12)
         : const Color(0xFFF59E0B).withOpacity(0.12);
-    final Color fg = isAdult
-        ? AppColors.indigo
-        : const Color(0xFFB45309);
+    final Color fg = isAdult ? AppColors.indigo : const Color(0xFFB45309);
     final String label = isAdult ? 'ADULT' : 'MINOR';
 
     return Container(
@@ -707,11 +731,13 @@ class _SkeletonBoxState extends State<_SkeletonBox>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat();
-    _anim = Tween<double>(begin: -2, end: 2).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _anim = Tween<double>(
+      begin: -2,
+      end: 2,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override

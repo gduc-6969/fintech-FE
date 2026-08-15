@@ -4,76 +4,103 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/models/transaction_flow_data.dart';
+import '../../../face_id/domain/face_id_policy.dart';
+import '../../../face_id/domain/transaction_face_authorization.dart';
 
 class TransactionReviewScreen extends StatefulWidget {
-  final Map<String, dynamic> data;
+  final TransactionFlowData data;
   const TransactionReviewScreen({super.key, required this.data});
 
   @override
-  State<TransactionReviewScreen> createState() => _TransactionReviewScreenState();
+  State<TransactionReviewScreen> createState() =>
+      _TransactionReviewScreenState();
 }
 
 class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
-
-  String _formatCurrency(double value) {
+  String _formatCurrency(num value) {
     return NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(value);
   }
 
-  String get _type => widget.data['type'] as String;
+  TransactionType get _type => widget.data.type;
 
   String get _title {
     switch (_type) {
-      case 'deposit': return 'Xác nhận nạp tiền';
-      case 'withdraw': return 'Xác nhận rút tiền';
-      case 'transfer': return 'Xác nhận chuyển tiền';
-      default: return 'Xác nhận';
+      case TransactionType.deposit:
+        return 'Xác nhận nạp tiền';
+      case TransactionType.withdraw:
+        return 'Xác nhận rút tiền';
+      case TransactionType.transfer:
+        return 'Xác nhận chuyển tiền';
     }
   }
 
   String get _confirmLabel {
     switch (_type) {
-      case 'deposit': return 'Xác nhận Nạp tiền';
-      case 'withdraw': return 'Xác nhận Rút tiền';
-      case 'transfer': return 'Xác nhận Chuyển tiền';
-      default: return 'Xác nhận';
+      case TransactionType.deposit:
+        return 'Xác nhận Nạp tiền';
+      case TransactionType.withdraw:
+        return 'Xác nhận Rút tiền';
+      case TransactionType.transfer:
+        return 'Xác nhận Chuyển tiền';
     }
   }
 
   Color get _amountColor {
     switch (_type) {
-      case 'deposit': return AppColors.success;
-      case 'withdraw': return AppColors.primaryNavy;
-      case 'transfer': return const Color(0xFF3B82F6);
-      default: return AppColors.textPrimary;
+      case TransactionType.deposit:
+        return AppColors.success;
+      case TransactionType.withdraw:
+        return AppColors.primaryNavy;
+      case TransactionType.transfer:
+        return const Color(0xFF3B82F6);
     }
   }
 
   void _handleConfirm() {
     final String prefix;
-    if (_type == 'deposit') {
+    if (_type == TransactionType.deposit) {
       prefix = 'topup';
-    } else if (_type == 'withdraw') {
+    } else if (_type == TransactionType.withdraw) {
       prefix = 'withdraw';
     } else {
       prefix = 'wallet-transfer';
     }
     final idempotencyKey = '$prefix-${const Uuid().v7()}';
-    context.push('/transaction/verify', extra: {
-      ...widget.data,
-      'idempotencyKey': idempotencyKey,
-    });
+    final data = widget.data.copyWith(idempotencyKey: idempotencyKey);
+    if (FaceIdPolicy.isRequiredFor(data.amount)) {
+      context.push('/transaction/face-id', extra: data);
+    } else {
+      context.push(
+        '/transaction/verify',
+        extra: TransactionAuthorizationData(transaction: data),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final amount = widget.data['amount'] as double;
+    final amount = widget.data.amount;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary), onPressed: () => context.pop()),
-        title: Text(_title, style: GoogleFonts.dmSans(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.textPrimary,
+          ),
+          onPressed: () => context.pop(),
+        ),
+        title: Text(
+          _title,
+          style: GoogleFonts.dmSans(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -87,13 +114,23 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.border),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
-                  _reviewRow('Từ', widget.data['fromName'] as String, sub: widget.data['fromSub'] as String?),
+                  _reviewRow(
+                    'Từ',
+                    widget.data.fromName,
+                    sub: widget.data.fromSub,
+                  ),
                   _divider(),
-                  _reviewRow('Đến', widget.data['toName'] as String, sub: widget.data['toSub'] as String?),
+                  _reviewRow('Đến', widget.data.toName, sub: widget.data.toSub),
                   _divider(),
                   // Amount row (special styling)
                   Padding(
@@ -102,8 +139,21 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Số tiền', style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textSecondary)),
-                        Text(_formatCurrency(amount), style: GoogleFonts.dmSans(fontSize: 20, fontWeight: FontWeight.bold, color: _amountColor)),
+                        Text(
+                          'Số tiền',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          _formatCurrency(amount),
+                          style: GoogleFonts.dmSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: _amountColor,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -113,6 +163,42 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            if (FaceIdPolicy.isRequiredFor(amount)) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryNavy.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryNavy.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.face_retouching_natural_rounded,
+                      color: AppColors.primaryNavy,
+                      size: 21,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Giao dịch từ 10.000.000 ₫ yêu cầu quét khuôn mặt trước, sau đó xác nhận bằng PIN hoặc OTP.',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 13,
+                          height: 1.45,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primaryNavy,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             // Warning
             Container(
               width: double.infinity,
@@ -124,12 +210,20 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 20),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: AppColors.warning,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Giao dịch không thể hoàn tác sau khi xác nhận.',
-                      style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.warning, fontWeight: FontWeight.w500),
+                      style: GoogleFonts.dmSans(
+                        fontSize: 13,
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -139,16 +233,25 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
             const SizedBox(height: 32),
             // Confirm button
             SizedBox(
-              width: double.infinity, height: 56,
+              width: double.infinity,
+              height: 56,
               child: ElevatedButton(
                 onPressed: _handleConfirm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryNavy,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: Text(_confirmLabel, style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(
+                  _confirmLabel,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -164,15 +267,36 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textSecondary)),
+          Text(
+            label,
+            style: GoogleFonts.dmSans(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(width: 16),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(value, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary), textAlign: TextAlign.end),
+                Text(
+                  value,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.end,
+                ),
                 if (sub != null)
-                  Text(sub, style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecondary), textAlign: TextAlign.end),
+                  Text(
+                    sub,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
               ],
             ),
           ),

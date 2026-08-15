@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/models/transaction_flow_data.dart';
 import '../../../../core/services/api_service.dart';
 
 class TransferScreen extends StatefulWidget {
@@ -74,7 +75,8 @@ class _TransferScreenState extends State<TransferScreen> {
       final wallet = await ApiService.getWallet();
       if (mounted) {
         setState(() {
-          _availableBalance = (wallet['availableBalance'] as num?)?.toDouble() ?? 0.0;
+          _availableBalance =
+              (wallet['availableBalance'] as num?)?.toDouble() ?? 0.0;
           _isLoadingBalance = false;
         });
       }
@@ -113,7 +115,8 @@ class _TransferScreenState extends State<TransferScreen> {
 
   void _validateAmount() {
     if (_amount > _availableBalance) {
-      _amountError = 'Vượt quá số dư khả dụng (${_formatCurrency(_availableBalance)})';
+      _amountError =
+          'Vượt quá số dư khả dụng (${_formatCurrency(_availableBalance)})';
     } else {
       _amountError = null;
     }
@@ -162,15 +165,15 @@ class _TransferScreenState extends State<TransferScreen> {
 
   void _goToReview() {
     final phone = _phoneCtrl.text.trim();
-    final reviewData = {
-      'type': 'transfer',
-      'fromName': ApiService.currentUserFullName ?? 'Ví của tôi',
-      'fromSub': 'Ví Walli',
-      'toName': _recipientFullName ?? 'Người dùng ví',
-      'toSub': phone,
-      'amount': _amount.toDouble(),
-      'recipientPhone': phone,
-    };
+    final reviewData = TransactionFlowData(
+      type: TransactionType.transfer,
+      fromName: ApiService.currentUserFullName ?? 'Ví của tôi',
+      fromSub: 'Ví Walli',
+      toName: _recipientFullName ?? 'Người dùng ví',
+      toSub: phone,
+      amount: _amount,
+      recipientPhone: phone,
+    );
     context.push('/transaction/review', extra: reviewData);
   }
 
@@ -181,17 +184,28 @@ class _TransferScreenState extends State<TransferScreen> {
     final phone = _phoneCtrl.text.trim();
     final bool canFind = phone.length >= 10 && _lookupState != 'loading';
     final bool recipientFound = _lookupState == 'found';
-    final bool canReview = recipientFound && _amount >= 1000 && _amount <= _availableBalance;
+    final bool canReview =
+        recipientFound && _amount >= 1000 && _amount <= _availableBalance;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0,
+        backgroundColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.textPrimary,
+          ),
           onPressed: () => context.pop(),
         ),
-        title: Text('Chuyển tiền', style: GoogleFonts.dmSans(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Chuyển tiền',
+          style: GoogleFonts.dmSans(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -203,63 +217,129 @@ class _TransferScreenState extends State<TransferScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.border),
               ),
-              child: Row(children: [
-                Text('Khả dụng: ', style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecondary)),
-                _isLoadingBalance
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_formatCurrency(_availableBalance),
-                        style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-              ]),
+              child: Row(
+                children: [
+                  Text(
+                    'Khả dụng: ',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  _isLoadingBalance
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          _formatCurrency(_availableBalance),
+                          style: GoogleFonts.dmSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 
             // ── Step 1: Recipient phone ─────────────────────────────────────
-            Text('SỐ ĐIỆN THOẠI NGƯỜI NHẬN',
-                style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.5)),
+            Text(
+              'SỐ ĐIỆN THOẠI NGƯỜI NHẬN',
+              style: GoogleFonts.dmSans(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.5,
+              ),
+            ),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(11)],
-                  style: GoogleFonts.dmSans(fontSize: 16, color: AppColors.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'vd. 0123456789',
-                    hintStyle: GoogleFonts.dmSans(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(Icons.phone_rounded, color: AppColors.textSecondary),
-                    filled: true, fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primary)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(11),
+                    ],
+                    style: GoogleFonts.dmSans(
+                      fontSize: 16,
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'vd. 0123456789',
+                      hintStyle: GoogleFonts.dmSans(
+                        color: AppColors.textSecondary,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.phone_rounded,
+                        color: AppColors.textSecondary,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.primary),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: canFind ? _handleFind : null,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size.zero,
-                    backgroundColor: AppColors.primaryNavy,
-                    disabledBackgroundColor: AppColors.inputFill,
-                    disabledForegroundColor: AppColors.textSecondary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: canFind ? _handleFind : null,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: Size.zero,
+                      backgroundColor: AppColors.primaryNavy,
+                      disabledBackgroundColor: AppColors.inputFill,
+                      disabledForegroundColor: AppColors.textSecondary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                    ),
+                    child: _lookupState == 'loading'
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            'Tìm',
+                            style: GoogleFonts.dmSans(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
-                  child: _lookupState == 'loading'
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text('Tìm', style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
                 ),
-              ),
-            ]),
+              ],
+            ),
 
             // Lookup result
             if (_lookupState == 'found' && _recipientFullName != null) ...[
@@ -274,11 +354,21 @@ class _TransferScreenState extends State<TransferScreen> {
             const SizedBox(height: 24),
 
             // ── Step 2: Amount (only active after found) ────────────────────
-            Row(children: [
-              Text('SỐ TIỀN (VND)',
-                  style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold,
-                      color: recipientFound ? AppColors.textSecondary : AppColors.textSecondary.withOpacity(0.4), letterSpacing: 0.5)),
-            ]),
+            Row(
+              children: [
+                Text(
+                  'SỐ TIỀN (VND)',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: recipientFound
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondary.withOpacity(0.4),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             AbsorbPointer(
               absorbing: !recipientFound,
@@ -290,32 +380,68 @@ class _TransferScreenState extends State<TransferScreen> {
                       controller: _amountCtrl,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: GoogleFonts.dmSans(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      style: GoogleFonts.dmSans(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
                       onChanged: (val) {
                         final formatted = _formatNumber(val);
                         if (formatted != val) {
-                          _amountCtrl.value = TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
+                          _amountCtrl.value = TextEditingValue(
+                            text: formatted,
+                            selection: TextSelection.collapsed(
+                              offset: formatted.length,
+                            ),
+                          );
                         }
-                        setState(() { _selectedChip = null; _validateAmount(); });
+                        setState(() {
+                          _selectedChip = null;
+                          _validateAmount();
+                        });
                       },
                       decoration: InputDecoration(
                         hintText: '0',
-                        hintStyle: GoogleFonts.dmSans(fontSize: 28, fontWeight: FontWeight.bold,
-                            color: AppColors.textSecondary.withOpacity(0.4)),
+                        hintStyle: GoogleFonts.dmSans(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary.withOpacity(0.4),
+                        ),
                         suffixText: '₫',
-                        suffixStyle: GoogleFonts.dmSans(fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                        filled: true, fillColor: Colors.white,
+                        suffixStyle: GoogleFonts.dmSans(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
                         errorText: _amountError,
-                        errorStyle: GoogleFonts.dmSans(fontSize: 12, color: AppColors.error),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.border)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.primary)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                        errorStyle: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          color: AppColors.error,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 18,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Wrap(
-                      spacing: 8, runSpacing: 8,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: List.generate(_quickAmounts.length, (i) {
                         final selected = _selectedChip == i;
                         return ChoiceChip(
@@ -330,9 +456,16 @@ class _TransferScreenState extends State<TransferScreen> {
                           },
                           selectedColor: AppColors.primaryNavy,
                           backgroundColor: AppColors.inputFill,
-                          labelStyle: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600,
-                              color: selected ? Colors.white : AppColors.textPrimary),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          labelStyle: GoogleFonts.dmSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: selected
+                                ? Colors.white
+                                : AppColors.textPrimary,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           side: BorderSide.none,
                         );
                       }),
@@ -345,7 +478,8 @@ class _TransferScreenState extends State<TransferScreen> {
 
             // Review button
             SizedBox(
-              width: double.infinity, height: 56,
+              width: double.infinity,
+              height: 56,
               child: ElevatedButton(
                 onPressed: canReview ? _goToReview : null,
                 style: ElevatedButton.styleFrom(
@@ -354,9 +488,17 @@ class _TransferScreenState extends State<TransferScreen> {
                   foregroundColor: Colors.white,
                   disabledForegroundColor: AppColors.textSecondary,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: Text('Xem lại giao dịch', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Xem lại giao dịch',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -366,9 +508,12 @@ class _TransferScreenState extends State<TransferScreen> {
   }
 
   Widget _buildRecipientCard() {
-    final initials = (_recipientFullName ?? 'W').split(' ')
-        .where((w) => w.isNotEmpty).take(2)
-        .map((w) => w[0].toUpperCase()).join();
+    final initials = (_recipientFullName ?? 'W')
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
 
     return Container(
       width: double.infinity,
@@ -377,39 +522,83 @@ class _TransferScreenState extends State<TransferScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.success.withOpacity(0.4)),
-        boxShadow: [BoxShadow(color: AppColors.success.withOpacity(0.06), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: AppColors.success.withOpacity(0.06), blurRadius: 8),
+        ],
       ),
-      child: Row(children: [
-        // Avatar
-        Container(
-          width: 44, height: 44,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF4F46E5)]),
-            borderRadius: BorderRadius.circular(22),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E293B), Color(0xFF4F46E5)],
+              ),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initials,
+              style: GoogleFonts.dmSans(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
-          alignment: Alignment.center,
-          child: Text(initials, style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-        ),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_recipientFullName ?? 'Người dùng ví',
-              style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-          Text(_phoneCtrl.text.trim(),
-              style: GoogleFonts.robotoMono(fontSize: 12, color: AppColors.textSecondary)),
-        ])),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.success.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _recipientFullName ?? 'Người dùng ví',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  _phoneCtrl.text.trim(),
+                  style: GoogleFonts.robotoMono(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.check_circle_rounded, color: AppColors.success, size: 14),
-            const SizedBox(width: 4),
-            Text('Đã xác minh', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success)),
-          ]),
-        ),
-      ]),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.success,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Đã xác minh',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.success,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -422,12 +611,22 @@ class _TransferScreenState extends State<TransferScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.error.withOpacity(0.3)),
       ),
-      child: Row(children: [
-        Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
-        const SizedBox(width: 10),
-        Expanded(child: Text(_lookupError ?? 'Không tìm thấy người nhận.',
-            style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.error, fontWeight: FontWeight.w500))),
-      ]),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _lookupError ?? 'Không tìm thấy người nhận.',
+              style: GoogleFonts.dmSans(
+                fontSize: 13,
+                color: AppColors.error,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

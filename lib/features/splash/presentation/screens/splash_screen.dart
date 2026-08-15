@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/services/api_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,9 +20,12 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateToNext() async {
-    await Future.delayed(const Duration(seconds: 2));
+    final minimumDisplay = Future.delayed(const Duration(milliseconds: 700));
+    await Future.wait([ApiService.initializeSession(), minimumDisplay]);
     if (mounted) {
-      context.go(AppRouter.login);
+      context.go(
+        ApiService.isAuthenticated ? AppRouter.wallet : AppRouter.login,
+      );
     }
   }
 

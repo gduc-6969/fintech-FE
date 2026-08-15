@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -25,21 +26,53 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _otpFocusNode = FocusNode();
 
   bool _codeSent = false;
-  bool _isOtpVerified = false;
+  bool _showPasswordFields = false;
   bool _isLoading = false;
   bool _isNewPasswordObscured = true;
   bool _isConfirmPasswordObscured = true;
   String? _errorMessage;
   String? _infoMessage;
+  String? _codeEmail;
+  Timer? _resendTimer;
+  int _resendSeconds = 0;
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _otpFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleEmailChanged(String value) {
+    final email = value.trim();
+    if (_codeEmail != null && email != _codeEmail) {
+      _resendTimer?.cancel();
+      _otpController.clear();
+      setState(() {
+        _codeSent = false;
+        _showPasswordFields = false;
+        _codeEmail = null;
+        _resendSeconds = 0;
+        _infoMessage = null;
+      });
+    }
+  }
+
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendSeconds = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _resendSeconds <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _resendSeconds = 0);
+        return;
+      }
+      setState(() => _resendSeconds--);
+    });
   }
 
   bool _hasMinLength(String password) => password.length >= 8;
@@ -49,6 +82,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password);
 
   Future<void> _handleSendCode() async {
+    if (_isLoading || _resendSeconds > 0) return;
     setState(() {
       _errorMessage = null;
       _infoMessage = null;
@@ -76,9 +110,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       setState(() {
         _isLoading = false;
         _codeSent = true;
+        _codeEmail = email;
+        _showPasswordFields = false;
         _infoMessage =
-            'Nếu $email đã được đăng ký, bạn sẽ nhận được mã ngay.';
+            'Nếu $email đã được đăng ký, mã 6 số sẽ được gửi. Mã có thời hạn, vui lòng kiểm tra hộp thư.';
       });
+      _startResendCooldown();
     } on DioException catch (e) {
       if (!mounted) return;
       final statusCode = e.response?.statusCode;
@@ -89,9 +126,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         setState(() {
           _isLoading = false;
           _codeSent = true;
+          _codeEmail = email;
+          _showPasswordFields = false;
           _infoMessage =
-              'Nếu $email đã được đăng ký, bạn sẽ nhận được mã ngay.';
+              'Nếu $email đã được đăng ký, mã 6 số sẽ được gửi. Mã có thời hạn, vui lòng kiểm tra hộp thư.';
         });
+        _startResendCooldown();
       } else {
         // Real errors (timeout, 5xx, network down) — show the error banner.
         setState(() {
@@ -102,48 +142,61 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     }
   }
 
-  void _handleVerifyOtp() {
+  void _handleContinue() {
     final code = _otpController.text.trim();
-    if (code.length < 6) {
-      setState(() => _errorMessage = 'Vui lòng nhập đủ 6 số');
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() => _errorMessage = 'Mã xác thực phải gồm đúng 6 số');
       return;
     }
     setState(() {
-      _isOtpVerified = true;
+      _showPasswordFields = true;
       _errorMessage = null;
-      _infoMessage = null;
+      _infoMessage =
+          'Mã sẽ được xác nhận cùng mật khẩu mới khi bạn gửi biểu mẫu.';
     });
   }
 
   Future<void> _handleResetPassword() async {
     setState(() => _errorMessage = null);
 
+    final email = _emailController.text.trim();
+    final verificationCode = _otpController.text.trim();
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
+    if (!_codeSent || _codeEmail != email) {
+      setState(() {
+        _showPasswordFields = false;
+        _errorMessage = 'Vui lòng gửi mã xác thực cho email hiện tại.';
+      });
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(verificationCode)) {
+      setState(() {
+        _showPasswordFields = false;
+        _errorMessage = 'Mã xác thực phải gồm đúng 6 số.';
+      });
+      _otpFocusNode.requestFocus();
+      return;
+    }
+
     if (newPassword.length < 8) {
-      setState(
-        () => _errorMessage = 'Mật khẩu phải có ít nhất 8 ký tự',
-      );
+      setState(() => _errorMessage = 'Mật khẩu phải có ít nhất 8 ký tự');
       return;
     }
     if (!_hasNumber(newPassword)) {
-      setState(
-        () => _errorMessage = 'Mật khẩu phải chứa ít nhất một số',
-      );
+      setState(() => _errorMessage = 'Mật khẩu phải chứa ít nhất một số');
       return;
     }
     if (!_hasUppercase(newPassword)) {
       setState(
-        () =>
-            _errorMessage = 'Mật khẩu phải chứa ít nhất một chữ in hoa',
+        () => _errorMessage = 'Mật khẩu phải chứa ít nhất một chữ in hoa',
       );
       return;
     }
     if (!_hasSpecialChar(newPassword)) {
       setState(
-        () =>
-            _errorMessage = 'Mật khẩu phải chứa ít nhất một ký tự đặc biệt',
+        () => _errorMessage = 'Mật khẩu phải chứa ít nhất một ký tự đặc biệt',
       );
       return;
     }
@@ -156,11 +209,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     try {
       await ApiService.resetPassword(
-        email: _emailController.text.trim(),
-        verificationCode: _otpController.text.trim(),
+        email: email,
+        verificationCode: verificationCode,
         newPassword: newPassword,
       );
       if (!mounted) return;
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+      _otpController.clear();
       context.go(AppRouter.resetPasswordSuccess);
     } on DioException catch (e) {
       if (!mounted) return;
@@ -168,15 +224,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       final errorCode = ApiService.parseErrorCode(e);
       final lowerMsg = message.toLowerCase();
       // If the OTP was wrong, let the user go back and re-enter it.
-      final isInvalidOtp = errorCode == 'INVALID_PASSWORD_RESET_CODE' ||
+      final isInvalidOtp =
+          errorCode == 'INVALID_PASSWORD_RESET_CODE' ||
           lowerMsg.contains('reset code') ||
           lowerMsg.contains('verification') ||
           lowerMsg.contains('expired') ||
           lowerMsg.contains('xac thuc') ||
           lowerMsg.contains('xác thực') ||
           lowerMsg.contains('het han') ||
-          lowerMsg.contains('hết hạn') ||
-          e.response?.statusCode == 400;
+          lowerMsg.contains('hết hạn');
       setState(() {
         _isLoading = false;
         _errorMessage = isInvalidOtp
@@ -184,7 +240,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             : message;
         if (isInvalidOtp) {
           // Let the user go back and correct the OTP.
-          _isOtpVerified = false;
+          _showPasswordFields = false;
+          _otpController.clear();
+          _otpFocusNode.requestFocus();
         }
       });
     }
@@ -192,48 +250,40 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   // ── PINPUT THEMES ──
   PinTheme _defaultPinTheme() => PinTheme(
-        width: 44,
-        height: 52,
-        textStyle: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimary,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.inputFill,
-          border: Border.all(color: Colors.transparent, width: 1.5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-      );
+    width: 44,
+    height: 52,
+    textStyle: const TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.bold,
+      color: AppColors.textPrimary,
+    ),
+    decoration: BoxDecoration(
+      color: AppColors.inputFill,
+      border: Border.all(color: Colors.transparent, width: 1.5),
+      borderRadius: BorderRadius.circular(12),
+    ),
+  );
 
-  PinTheme _focusedPinTheme(PinTheme defaultTheme) =>
-      defaultTheme.copyWith(
-        width: 46,
-        height: 54,
-        decoration: defaultTheme.decoration!.copyWith(
-          color: AppColors.textWhite,
-          border: Border.all(color: AppColors.primaryNavy, width: 1.5),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x141E293B),
-              blurRadius: 8,
-              spreadRadius: 3,
-            ),
-          ],
-        ),
-      );
+  PinTheme _focusedPinTheme(PinTheme defaultTheme) => defaultTheme.copyWith(
+    width: 46,
+    height: 54,
+    decoration: defaultTheme.decoration!.copyWith(
+      color: AppColors.textWhite,
+      border: Border.all(color: AppColors.primaryNavy, width: 1.5),
+      boxShadow: const [
+        BoxShadow(color: Color(0x141E293B), blurRadius: 8, spreadRadius: 3),
+      ],
+    ),
+  );
 
-  PinTheme _submittedPinTheme(PinTheme defaultTheme) =>
-      defaultTheme.copyWith(
-        textStyle: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textWhite,
-        ),
-        decoration: defaultTheme.decoration!.copyWith(
-          color: AppColors.primaryNavy,
-        ),
-      );
+  PinTheme _submittedPinTheme(PinTheme defaultTheme) => defaultTheme.copyWith(
+    textStyle: const TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.bold,
+      color: AppColors.textWhite,
+    ),
+    decoration: defaultTheme.decoration!.copyWith(color: AppColors.primaryNavy),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -275,7 +325,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Nhập email của bạn, xác thực mã,\nsau đó đặt mật khẩu mới',
+                  'Nhận mã qua email, sau đó gửi mã\ncùng mật khẩu mới để xác nhận',
                   style: AppTextStyles.subtitle.copyWith(
                     color: AppColors.textWhite.withValues(alpha: 0.8),
                   ),
@@ -312,12 +362,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Verified banner
-            if (_isOtpVerified)
-              FadeUpAnimation(child: _buildVerifiedBanner()),
-
             // ═══════════════ PASSWORD FIELDS ═══════════════
-            if (_isOtpVerified) ...[
+            if (_showPasswordFields) ...[
               const SizedBox(height: 24),
               FadeUpAnimation(
                 delayInMilliseconds: 50,
@@ -359,14 +405,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               )
             else
               TextButton(
-                onPressed: _handleSendCode,
+                onPressed: _resendSeconds > 0 ? null : _handleSendCode,
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  _codeSent ? 'Gửi lại mã' : 'Gửi mã',
+                  _resendSeconds > 0
+                      ? 'Gửi lại sau ${_resendSeconds}s'
+                      : (_codeSent ? 'Gửi lại mã' : 'Gửi mã'),
                   style: AppTextStyles.linkText,
                 ),
               ),
@@ -375,7 +423,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _emailController,
+          onChanged: _handleEmailChanged,
           keyboardType: TextInputType.emailAddress,
+          autofillHints: const [AutofillHints.email],
           decoration: const InputDecoration(
             hintText: 'Nhập email của bạn',
             prefixIcon: Icon(
@@ -396,23 +446,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         Row(
           children: [
             Text('MÃ XÁC THỰC *', style: AppTextStyles.label),
-            if (_isOtpVerified) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.check_circle, color: AppColors.success, size: 16),
-              const SizedBox(width: 4),
-              Text(
-                'Đã xác thực',
-                style: TextStyle(
-                  color: AppColors.success,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ],
             const Spacer(),
-            if (!_isOtpVerified)
+            if (!_showPasswordFields)
               ElevatedButton(
-                onPressed: (_isLoading || !_codeSent) ? null : _handleVerifyOtp,
+                onPressed: (_isLoading || !_codeSent) ? null : _handleContinue,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryNavy,
                   foregroundColor: AppColors.textWhite,
@@ -427,7 +464,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   elevation: 0,
                 ),
                 child: const Text(
-                  'Xong',
+                  'Tiếp tục',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -439,7 +476,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             length: 6,
             controller: _otpController,
             focusNode: _otpFocusNode,
-            enabled: !_isOtpVerified,
+            enabled: !_showPasswordFields && _codeSent,
+            keyboardType: TextInputType.number,
             defaultPinTheme: defaultPinTheme,
             focusedPinTheme: _focusedPinTheme(defaultPinTheme),
             submittedPinTheme: _submittedPinTheme(defaultPinTheme),
@@ -460,6 +498,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         TextFormField(
           controller: _newPasswordController,
           obscureText: _isNewPasswordObscured,
+          autofillHints: const [AutofillHints.newPassword],
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: 'Tạo mật khẩu mạnh',
@@ -507,6 +546,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         TextFormField(
           controller: _confirmPasswordController,
           obscureText: _isConfirmPasswordObscured,
+          autofillHints: const [AutofillHints.newPassword],
           decoration: InputDecoration(
             hintText: 'Nhập lại mật khẩu mới',
             prefixIcon: const Icon(
@@ -523,8 +563,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               onPressed: () {
                 setState(
                   () =>
-                      _isConfirmPasswordObscured =
-                          !_isConfirmPasswordObscured,
+                      _isConfirmPasswordObscured = !_isConfirmPasswordObscured,
                 );
               },
             ),
@@ -552,15 +591,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, size: 18, color: AppColors.textSecondary),
+          const Icon(
+            Icons.info_outline,
+            size: 18,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -580,29 +620,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       child: Text(
         message,
         style: const TextStyle(color: AppColors.error, fontSize: 13),
-      ),
-    );
-  }
-
-  // ── VERIFIED BANNER ──
-  Widget _buildVerifiedBanner() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.textSecondary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.check_circle_outline, size: 18, color: AppColors.success),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Đã xác thực danh tính \u2014 đặt mật khẩu mới của bạn bên dưới',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
       ),
     );
   }

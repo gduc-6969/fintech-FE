@@ -4,13 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập camera để quét mã QR thanh toán.</string>
+	<string>Ứng dụng cần camera để quét mã QR và chụp khuôn mặt phục vụ xác minh danh tính, bảo vệ giao dịch giá trị cao.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ứng dụng cần quyền truy cập thư viện ảnh để lưu mã QR của bạn.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

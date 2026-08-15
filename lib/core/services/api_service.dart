@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../models/transaction_flow_data.dart';
 
 class RegisterPayload {
   final String fullName;
@@ -54,7 +56,15 @@ class RegisterPayload {
 class ApiService {
   ApiService._();
 
-  static const String _baseUrl = 'http://13.213.32.9/fintech-service';
+  static const String _baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://13.213.32.9/fintech-service',
+  );
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const String _tokenStorageKey = 'auth_access_token';
+  static const String _phoneStorageKey = 'auth_phone_number';
+  static final ValueNotifier<bool> authState = ValueNotifier<bool>(false);
+  static bool _sessionInitialized = false;
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _baseUrl,
@@ -67,17 +77,17 @@ class ApiService {
         'Accept': 'application/json',
       },
     ),
-  )..interceptors.add(
-      LogInterceptor(
-        request: true,
-        requestHeader: false,
-        requestBody: true,
-        responseHeader: false,
-        responseBody: true,
-        error: true,
-        logPrint: (object) => debugPrint('[API] $object'),
-      ),
-    );
+  );
+
+  static bool get isAuthenticated =>
+      authToken != null && !_isTokenExpired(authToken!);
+  static bool get isSessionInitialized => _sessionInitialized;
+
+  static void _requireAuthentication() {
+    if (!isAuthenticated) {
+      throw StateError('Not authenticated');
+    }
+  }
 
   static String? authToken;
   static String? currentUserFullName;
@@ -92,7 +102,8 @@ class ApiService {
         final normalized = base64Url.normalize(payloadStr);
         final payloadJson = utf8.decode(base64Url.decode(normalized));
         final payload = jsonDecode(payloadJson);
-        if (payload is Map<String, dynamic> && payload.containsKey('fullName')) {
+        if (payload is Map<String, dynamic> &&
+            payload.containsKey('fullName')) {
           currentUserFullName = payload['fullName'] as String?;
         }
       }
@@ -101,44 +112,139 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> getWallet() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/wallet',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
+  static void configure() {
+    if (_dio.interceptors.isNotEmpty) return;
+    final apiUri = Uri.tryParse(_baseUrl);
+    if (apiUri == null || !apiUri.hasScheme || apiUri.host.isEmpty) {
+      throw StateError(
+        'Invalid API_BASE_URL. Pass a complete URL with --dart-define.',
+      );
+    }
+    if (kReleaseMode && apiUri.scheme != 'https') {
+      throw StateError('Release builds require an HTTPS API_BASE_URL.');
+    }
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path.contains('/private/')) {
+            final token = authToken;
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          }
+          handler.next(options);
+        },
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401 &&
+              error.requestOptions.path.contains('/private/')) {
+            await clearSession();
+          }
+          handler.next(error);
+        },
+      ),
     );
+    if (kDebugMode) {
+      _dio.interceptors.add(
+        LogInterceptor(
+          request: true,
+          requestHeader: false,
+          requestBody: false,
+          responseHeader: false,
+          responseBody: false,
+          error: true,
+          logPrint: (object) => debugPrint('[API] $object'),
+        ),
+      );
+    }
+  }
+
+  static Future<void> initializeSession() async {
+    configure();
+    try {
+      final token = await _secureStorage.read(key: _tokenStorageKey);
+      if (token != null && !_isTokenExpired(token)) {
+        _parseAndSetToken(token);
+        currentUserPhoneNumber = await _secureStorage.read(
+          key: _phoneStorageKey,
+        );
+      } else {
+        await clearSession(notify: false);
+      }
+    } catch (_) {
+      authToken = null;
+      currentUserFullName = null;
+      currentUserPhoneNumber = null;
+    } finally {
+      _sessionInitialized = true;
+      authState.value = isAuthenticated;
+    }
+  }
+
+  static bool _isTokenExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      final expiry = payload is Map<String, dynamic> ? payload['exp'] : null;
+      if (expiry is! num) return true;
+      return DateTime.fromMillisecondsSinceEpoch(
+        expiry.toInt() * 1000,
+        isUtc: true,
+      ).isBefore(DateTime.now().toUtc().add(const Duration(seconds: 30)));
+    } catch (_) {
+      return true;
+    }
+  }
+
+  static Future<void> _persistSession(String token, String phoneNumber) async {
+    await _secureStorage.write(key: _tokenStorageKey, value: token);
+    await _secureStorage.write(key: _phoneStorageKey, value: phoneNumber);
+    authState.value = true;
+  }
+
+  static Future<void> clearSession({bool notify = true}) async {
+    authToken = null;
+    currentUserFullName = null;
+    currentUserPhoneNumber = null;
+    await _secureStorage.delete(key: _tokenStorageKey);
+    await _secureStorage.delete(key: _phoneStorageKey);
+    if (notify) authState.value = false;
+  }
+
+  static Future<Map<String, dynamic>> getWallet() async {
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/wallet');
     if (response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
     }
     throw Exception('Invalid wallet response');
   }
 
-  static Future<List<dynamic>> getTransactions({String? type, String? status}) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+  static Future<List<dynamic>> getTransactions({
+    String? type,
+    String? status,
+  }) async {
+    _requireAuthentication();
     final data = <String, dynamic>{};
     if (type != null) data['type'] = type;
     if (status != null) data['status'] = status;
-    
+
     final response = await _dio.post(
       '/private/api/v1/wallet/transactions/search',
       data: data,
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
-    if (response.data is Map<String, dynamic> && response.data['content'] is List) {
+    if (response.data is Map<String, dynamic> &&
+        response.data['content'] is List) {
       return response.data['content'] as List<dynamic>;
     }
     return [];
   }
 
   static Future<List<dynamic>> getLinkedBankAccounts() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/wallet/bank-accounts',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/wallet/bank-accounts');
     if (response.data is List) {
       return response.data as List<dynamic>;
     }
@@ -146,12 +252,8 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getBanks() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/wallet/banks',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/wallet/banks');
     if (response.data is List) {
       return response.data as List<dynamic>;
     }
@@ -159,12 +261,8 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getTransactionDetail(String id) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/wallet/transactions/$id',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/wallet/transactions/$id');
     if (response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
     }
@@ -172,12 +270,8 @@ class ApiService {
   }
 
   static Future<List<String>> getTopUpMethods() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/wallet/topup-methods',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/wallet/topup-methods');
     if (response.data is List) {
       return (response.data as List).map((e) => e.toString()).toList();
     }
@@ -188,12 +282,10 @@ class ApiService {
     required String bankCode,
     required String accountNumber,
   }) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+    _requireAuthentication();
     final response = await _dio.post(
       '/private/api/v1/wallet/bank-accounts',
       data: {'bankCode': bankCode, 'accountNumber': accountNumber},
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
@@ -202,12 +294,8 @@ class ApiService {
   }
 
   static Future<void> unlinkBankAccount(String id) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    await _dio.delete(
-      '/private/api/v1/wallet/bank-accounts/$id',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    await _dio.delete('/private/api/v1/wallet/bank-accounts/$id');
   }
 
   static Future<void> requestOtp({
@@ -249,12 +337,8 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getUserProfile() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/auth/me',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/auth/me');
     if (response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
     }
@@ -291,7 +375,7 @@ class ApiService {
     await _dio.post('/public/api/v1/auth/register', data: body);
   }
 
-  static Future<String?> login({
+  static Future<String> login({
     required String phoneNumber,
     required String password,
     String? verificationCode,
@@ -317,10 +401,16 @@ class ApiService {
       if (token != null) {
         _parseAndSetToken(token);
         currentUserPhoneNumber = _normalizeVietnamPhoneNumber(phoneNumber);
+        await _persistSession(token, currentUserPhoneNumber!);
+        return token;
       }
-      return token;
     }
-    return null;
+    throw DioException(
+      requestOptions: response.requestOptions,
+      response: response,
+      type: DioExceptionType.badResponse,
+      message: 'Login response did not include an access token.',
+    );
   }
 
   static Future<void> forgotPassword({required String email}) async {
@@ -347,20 +437,14 @@ class ApiService {
 
   static Future<void> logout() async {
     final token = authToken;
-    if (token == null) {
-      throw DioException(
-        requestOptions: RequestOptions(path: '/private/api/v1/auth/logout'),
-        message: 'No auth token available',
-      );
-    }
-
-    await _dio.post(
-      '/private/api/v1/auth/logout',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
-
-    if (authToken == token) {
-      authToken = null;
+    try {
+      if (token != null) {
+        await _dio.post('/private/api/v1/auth/logout');
+      }
+    } catch (_) {
+      // Local credentials must still be removed when the server is unreachable.
+    } finally {
+      await clearSession();
     }
   }
 
@@ -377,12 +461,8 @@ class ApiService {
   // ── Wallet PIN & OTP ──────────────────────────────────────────────────────
 
   static Future<bool> getPinStatus() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/wallet/pin/status',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/wallet/pin/status');
     if (response.data is Map<String, dynamic>) {
       return (response.data as Map<String, dynamic>)['hasPin'] == true;
     }
@@ -390,32 +470,63 @@ class ApiService {
   }
 
   static Future<void> requestCreatePin(String pin) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    await _dio.post(
-      '/private/api/v1/wallet/pin/request',
-      data: {'pin': pin},
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    await _dio.post('/private/api/v1/wallet/pin/request', data: {'pin': pin});
   }
 
   static Future<void> confirmCreatePin(String otpCode) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+    _requireAuthentication();
     await _dio.post(
       '/private/api/v1/wallet/pin/confirm',
       data: {'otpCode': otpCode},
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
   }
 
   static Future<void> requestTransactionOtp() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    await _dio.post(
-      '/private/api/v1/wallet/pin/request-transaction-otp',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    _requireAuthentication();
+    await _dio.post('/private/api/v1/wallet/pin/request-transaction-otp');
+  }
+
+  // ── Face ID / remote facial verification ──
+
+  static Future<Map<String, dynamic>> registerFaceIdEnrollment({
+    required List<String> images,
+  }) async {
+    _requireAuthentication();
+    final response = await _dio.post(
+      '/private/api/v1/wallet/faceid/register-ekyc',
+      data: {'images': images},
+      options: Options(
+        sendTimeout: const Duration(seconds: 90),
+        receiveTimeout: const Duration(seconds: 90),
+      ),
     );
+    if (response.data is Map<String, dynamic>) {
+      return response.data as Map<String, dynamic>;
+    }
+    throw Exception('Invalid Face ID enrollment response');
+  }
+
+  static Future<Map<String, dynamic>> verifyFaceId({
+    required List<String> images,
+  }) async {
+    _requireAuthentication();
+    final response = await _dio.post(
+      '/private/api/v1/wallet/faceid/verify',
+      data: {
+        'images': images,
+        // The app does not currently implement a trusted active-liveness test.
+        'activeLivenessPassed': false,
+      },
+      options: Options(
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    if (response.data is Map<String, dynamic>) {
+      return response.data as Map<String, dynamic>;
+    }
+    throw Exception('Invalid Face ID verification response');
   }
 
   /// Returns the backend error-code string (e.g. 'INVALID_PIN', 'PIN_LOCKED').
@@ -429,83 +540,91 @@ class ApiService {
 
   // ── Transaction APIs ──────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> topUpFromBank({
+  static Future<TransactionSubmissionResult> topUpFromBank({
     required String linkedBankAccountId,
-    required double amount,
+    required int amount,
     required String idempotencyKey,
     String? pin,
     String? otpCode,
+    String? faceIdToken,
   }) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+    _requireAuthentication();
     final body = <String, dynamic>{
       'linkedBankAccountId': linkedBankAccountId,
-      'amount': amount.truncate(),
+      'amount': amount,
       'idempotencyKey': idempotencyKey,
     };
     if (pin != null) body['pin'] = pin;
     if (otpCode != null) body['otpCode'] = otpCode;
+    if (faceIdToken != null) body['faceIdToken'] = faceIdToken;
     final response = await _dio.post(
       '/private/api/v1/wallet/bank-topup',
       data: body,
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
-      return response.data as Map<String, dynamic>;
+      return TransactionSubmissionResult.fromJson(
+        response.data as Map<String, dynamic>,
+      );
     }
     throw Exception('Invalid top-up response');
   }
 
-  static Future<Map<String, dynamic>> withdrawToBank({
+  static Future<TransactionSubmissionResult> withdrawToBank({
     required String linkedBankAccountId,
-    required double amount,
+    required int amount,
     required String idempotencyKey,
     String? pin,
     String? otpCode,
+    String? faceIdToken,
   }) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+    _requireAuthentication();
     final body = <String, dynamic>{
       'linkedBankAccountId': linkedBankAccountId,
-      'amount': amount.truncate(),
+      'amount': amount,
       'idempotencyKey': idempotencyKey,
     };
     if (pin != null) body['pin'] = pin;
     if (otpCode != null) body['otpCode'] = otpCode;
+    if (faceIdToken != null) body['faceIdToken'] = faceIdToken;
     final response = await _dio.post(
       '/private/api/v1/wallet/bank-withdraw',
       data: body,
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
-      return response.data as Map<String, dynamic>;
+      return TransactionSubmissionResult.fromJson(
+        response.data as Map<String, dynamic>,
+      );
     }
     throw Exception('Invalid withdraw response');
   }
 
-  static Future<Map<String, dynamic>> transferToWallet({
+  static Future<TransactionSubmissionResult> transferToWallet({
     required String recipientPhoneNumber,
-    required double amount,
+    required int amount,
     required String idempotencyKey,
     String? pin,
     String? otpCode,
+    String? faceIdToken,
   }) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+    _requireAuthentication();
     final body = <String, dynamic>{
-      'recipientPhoneNumber': _normalizeVietnamPhoneNumber(recipientPhoneNumber),
-      'amount': amount.truncate(),
+      'recipientPhoneNumber': _normalizeVietnamPhoneNumber(
+        recipientPhoneNumber,
+      ),
+      'amount': amount,
       'idempotencyKey': idempotencyKey,
     };
     if (pin != null) body['pin'] = pin;
     if (otpCode != null) body['otpCode'] = otpCode;
+    if (faceIdToken != null) body['faceIdToken'] = faceIdToken;
     final response = await _dio.post(
       '/private/api/v1/wallet/transfer',
       data: body,
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
-      return response.data as Map<String, dynamic>;
+      return TransactionSubmissionResult.fromJson(
+        response.data as Map<String, dynamic>,
+      );
     }
     throw Exception('Invalid transfer response');
   }
@@ -513,14 +632,14 @@ class ApiService {
   static Future<String> lookupTransferRecipient({
     required String recipientPhoneNumber,
   }) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+    _requireAuthentication();
     final response = await _dio.get(
       '/private/api/v1/wallet/transfer/recipient',
       queryParameters: {
-        'recipientPhoneNumber': _normalizeVietnamPhoneNumber(recipientPhoneNumber),
+        'recipientPhoneNumber': _normalizeVietnamPhoneNumber(
+          recipientPhoneNumber,
+        ),
       },
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
       final data = response.data as Map<String, dynamic>;
@@ -532,12 +651,8 @@ class ApiService {
   /// Fetch the current user's own QR code (PNG as Base64).
   /// Returns a map with keys: qrBase64, phoneNumber, fullName.
   static Future<Map<String, dynamic>> getWalletQr() async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
-    final response = await _dio.get(
-      '/private/api/v1/wallet/qr',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    _requireAuthentication();
+    final response = await _dio.get('/private/api/v1/wallet/qr');
     if (response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
     }
@@ -548,12 +663,10 @@ class ApiService {
   /// [qrContent] is the raw text read from scanning a QR code.
   /// Returns a map with keys: phoneNumber, fullName.
   static Future<Map<String, dynamic>> decodeWalletQr(String qrContent) async {
-    final token = authToken;
-    if (token == null) throw Exception('Not authenticated');
+    _requireAuthentication();
     final response = await _dio.post(
       '/private/api/v1/wallet/qr/decode',
       data: {'qrContent': qrContent},
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
