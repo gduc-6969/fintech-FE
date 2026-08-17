@@ -18,6 +18,20 @@ class TransactionReviewScreen extends StatefulWidget {
 }
 
 class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
+  late final String _idempotencyKey;
+  bool _navigating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final prefix = switch (widget.data.type) {
+      TransactionType.deposit => 'topup',
+      TransactionType.withdraw => 'withdraw',
+      TransactionType.transfer => 'wallet-transfer',
+    };
+    _idempotencyKey = '$prefix-${const Uuid().v7()}';
+  }
+
   String _formatCurrency(num value) {
     return NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(value);
   }
@@ -57,24 +71,21 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
     }
   }
 
-  void _handleConfirm() {
-    final String prefix;
-    if (_type == TransactionType.deposit) {
-      prefix = 'topup';
-    } else if (_type == TransactionType.withdraw) {
-      prefix = 'withdraw';
-    } else {
-      prefix = 'wallet-transfer';
-    }
-    final idempotencyKey = '$prefix-${const Uuid().v7()}';
-    final data = widget.data.copyWith(idempotencyKey: idempotencyKey);
-    if (FaceIdPolicy.isRequiredFor(data)) {
-      context.push('/transaction/face-id', extra: data);
-    } else {
-      context.push(
-        '/transaction/verify',
-        extra: TransactionAuthorizationData(transaction: data),
-      );
+  Future<void> _handleConfirm() async {
+    if (_navigating) return;
+    setState(() => _navigating = true);
+    final data = widget.data.copyWith(idempotencyKey: _idempotencyKey);
+    try {
+      if (FaceIdPolicy.isRequiredFor(data)) {
+        await context.push('/transaction/face-id', extra: data);
+      } else {
+        await context.push(
+          '/transaction/verify',
+          extra: TransactionAuthorizationData(transaction: data),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _navigating = false);
     }
   }
 
@@ -116,7 +127,7 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
                 border: Border.all(color: AppColors.border),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -204,9 +215,11 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.08),
+                color: AppColors.warning.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
@@ -236,7 +249,7 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _handleConfirm,
+                onPressed: _navigating ? null : _handleConfirm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryNavy,
                   foregroundColor: Colors.white,
@@ -245,13 +258,21 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: Text(
-                  _confirmLabel,
-                  style: GoogleFonts.dmSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _navigating
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        _confirmLabel,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -307,6 +328,6 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
 
   Widget _divider() => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Divider(color: AppColors.border.withOpacity(0.6), height: 1),
+    child: Divider(color: AppColors.border.withValues(alpha: 0.6), height: 1),
   );
 }

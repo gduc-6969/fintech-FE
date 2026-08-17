@@ -9,6 +9,7 @@ import '../../../../core/models/transaction_flow_data.dart';
 import '../../../../core/services/api_service.dart';
 import '../../data/face_id_service.dart';
 import '../../domain/face_capture_pose.dart';
+import '../../domain/face_id_policy.dart';
 import '../../domain/transaction_face_authorization.dart';
 import 'face_id_enrollment_intro_screen.dart';
 import 'face_id_permission_screen.dart';
@@ -27,7 +28,7 @@ class TransactionFaceIdScreen extends StatefulWidget {
 class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
   bool _verifying = false;
   bool _notRegistered = false;
-  bool _directDemoVerified = false;
+  CancelToken? _verificationCancelToken;
   String? _error;
 
   String get _amount => NumberFormat.currency(
@@ -45,24 +46,32 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
         ),
       ),
     );
-    if (!mounted || images == null || images.length < 2) return;
+    if (images == null) return;
+    if (!mounted) {
+      images.clear();
+      return;
+    }
+    if (images.length != FaceIdPolicy.transactionFrameCount) {
+      images.clear();
+      setState(() {
+        _error = 'Phiên quét chưa ghi nhận đủ khuôn mặt. Vui lòng quét lại.';
+      });
+      return;
+    }
+    final cancelToken = CancelToken();
+    _verificationCancelToken = cancelToken;
     setState(() {
       _verifying = true;
       _notRegistered = false;
-      _directDemoVerified = false;
       _error = null;
     });
     try {
-      final token = await FaceIdService.verifyForTransaction(images);
-      images.clear();
+      final token = await FaceIdService.verifyForTransaction(
+        images,
+        transaction: widget.transaction,
+        cancelToken: cancelToken,
+      );
       if (!mounted) return;
-      if (token.isDirectDemo) {
-        setState(() {
-          _verifying = false;
-          _directDemoVerified = true;
-        });
-        return;
-      }
       context.pushReplacement(
         '/transaction/verify',
         extra: TransactionAuthorizationData(
@@ -71,7 +80,7 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
         ),
       );
     } on DioException catch (exception) {
-      images.clear();
+      if (CancelToken.isCancel(exception)) return;
       if (!mounted) return;
       final code = ApiService.parseErrorCode(exception);
       setState(() {
@@ -90,13 +99,24 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
           _error = ApiService.parseDioError(exception);
         }
       });
+    } on FormatException catch (_) {
+      if (mounted) {
+        setState(() {
+          _verifying = false;
+          _error = 'Dữ liệu khuôn mặt không hợp lệ. Vui lòng quét lại.';
+        });
+      }
     } catch (_) {
-      images.clear();
       if (mounted) {
         setState(() {
           _verifying = false;
           _error = 'Không thể xác thực khuôn mặt. Giao dịch chưa được gửi.';
         });
+      }
+    } finally {
+      images.clear();
+      if (identical(_verificationCancelToken, cancelToken)) {
+        _verificationCancelToken = null;
       }
     }
   }
@@ -112,6 +132,12 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
       _notRegistered = false;
       _error = null;
     });
+  }
+
+  @override
+  void dispose() {
+    _verificationCancelToken?.cancel('Face ID screen disposed.');
+    super.dispose();
   }
 
   @override
@@ -199,15 +225,6 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
                           color: _notRegistered
                               ? AppColors.warning
                               : AppColors.error,
-                        ),
-                      ],
-                      if (_directDemoVerified) ...[
-                        const SizedBox(height: 14),
-                        const FaceIdBanner(
-                          message:
-                              'Xác thực khuôn mặt trực tiếp thành công. Đây là chế độ thử nghiệm nên giao dịch chưa được gửi.',
-                          icon: Icons.check_circle_outline_rounded,
-                          color: Colors.green,
                         ),
                       ],
                       if (_verifying) ...[
