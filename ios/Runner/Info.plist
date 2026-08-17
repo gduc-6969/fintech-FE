@@ -6,6 +6,14 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Ứng dụng cần camera để quét mã QR và chụp khuôn mặt phục vụ xác minh danh tính, bảo vệ giao dịch giá trị cao.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Ứng dụng cần kết nối đến máy chủ thử nghiệm trong cùng mạng Wi-Fi.</string>
+	<!-- Temporary for local LAN testing. Remove after migrating the API to HTTPS. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ứng dụng cần quyền truy cập thư viện ảnh để lưu mã QR của bạn.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -6,8 +6,9 @@ workflows:
     environment:
       flutter: 3.44.1
       vars:
-        # Temporary sideload-demo endpoint. Replace with HTTPS before production.
-        API_BASE_URL: "http://13.213.32.9/fintech-service"
+        # Temporary LAN endpoint for an iPhone on the same Wi-Fi network.
+        # Replace with HTTPS before production.
+        API_BASE_URL: "http://192.168.2.202:8082/fintech-service"
         ALLOW_INSECURE_HTTP: "true"
     scripts:
       - name: Get Flutter packages
@@ -28,7 +29,7 @@ workflows:
                 exit 1
               fi
               ;;
-            http://13.213.32.9/fintech-service)
+            http://192.168.2.202:8082/fintech-service)
               if [ "${ALLOW_INSECURE_HTTP:-false}" != "true" ]; then
                 echo "The temporary HTTP demo endpoint requires ALLOW_INSECURE_HTTP=true."
                 exit 1

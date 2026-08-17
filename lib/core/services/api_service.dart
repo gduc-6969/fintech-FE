@@ -58,7 +58,10 @@ class ApiService {
 
   static const String _invalidSessionMessage =
       'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.';
-  static const String _demoHttpBaseUrl = 'http://13.213.32.9/fintech-service';
+  // Temporary LAN endpoint for testing on a physical phone connected to the
+  // same Wi-Fi network as the local Spring Boot server.
+  static const String _demoHttpBaseUrl =
+      'http://192.168.2.202:8082/fintech-service';
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: _demoHttpBaseUrl,
