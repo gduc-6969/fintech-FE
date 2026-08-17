@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/face_capture_pose.dart';
+import '../../domain/face_id_policy.dart';
 import '../widgets/face_id_components.dart';
 
 class FaceCaptureScreen extends StatefulWidget {
@@ -129,7 +130,9 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
       if (!mounted) return;
       setState(() => _countdown = null);
 
-      final framesToTake = _isTransaction ? 2 : 1;
+      final framesToTake = _isTransaction
+          ? FaceIdPolicy.transactionFrameCount
+          : 1;
       for (var frame = 0; frame < framesToTake; frame++) {
         final xFile = await controller.takePicture();
         try {
@@ -143,7 +146,7 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
           }
         }
         if (frame + 1 < framesToTake) {
-          await Future<void>.delayed(const Duration(milliseconds: 300));
+          await Future<void>.delayed(FaceIdPolicy.transactionFrameInterval);
         }
       }
 
@@ -277,7 +280,7 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
                         const SizedBox(height: 12),
                         const FaceIdBanner(
                           message:
-                              'Một lần quét sẽ tự động ghi nhận hai khung hình liên tiếp. Hãy giữ yên.',
+                              'Một lần quét sẽ tự động ghi nhận năm khung hình liên tiếp. Hãy giữ yên.',
                           icon: Icons.center_focus_strong_rounded,
                         ),
                       ],

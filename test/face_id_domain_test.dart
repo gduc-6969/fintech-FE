@@ -12,6 +12,14 @@ void main() {
       expect(FaceIdPolicy.isRequiredFor(10000000), isTrue);
       expect(FaceIdPolicy.isRequiredFor(10000001), isTrue);
     });
+
+    test('captures the frame sequence expected by passive liveness', () {
+      expect(FaceIdPolicy.transactionFrameCount, 5);
+      expect(
+        FaceIdPolicy.transactionFrameInterval,
+        const Duration(milliseconds: 150),
+      );
+    });
   });
 
   group('FaceIdToken', () {
