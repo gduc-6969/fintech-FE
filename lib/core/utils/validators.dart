@@ -1,6 +1,57 @@
 class Validators {
   Validators._();
 
+  static const Map<String, String> _vietnameseLetterGroups = {
+    'A': 'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴàáạảãâầấậẩẫăằắặẳẵ',
+    'E': 'ÈÉẸẺẼÊỀẾỆỂỄèéẹẻẽêềếệểễ',
+    'I': 'ÌÍỊỈĨìíịỉĩ',
+    'O': 'ÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠòóọỏõôồốộổỗơờớợởỡ',
+    'U': 'ÙÚỤỦŨƯỪỨỰỬỮùúụủũưừứựửữ',
+    'Y': 'ỲÝỴỶỸỳýỵỷỹ',
+    'D': 'Đđ',
+  };
+
+  /// Converts Vietnamese names to the registration format while preserving a
+  /// single trailing space so users can continue typing the next name part.
+  /// Only ASCII letters and single internal spaces are retained.
+  static String normalizeRegistrationName(String input) {
+    final output = StringBuffer();
+    var previousWasSpace = false;
+
+    for (final rune in input.runes) {
+      final character = String.fromCharCode(rune);
+      final isWhitespace = RegExp(r'\s').hasMatch(character);
+      if (isWhitespace) {
+        if (output.isNotEmpty && !previousWasSpace) {
+          output.write(' ');
+          previousWasSpace = true;
+        }
+        continue;
+      }
+
+      final upper = character.toUpperCase();
+      if (RegExp(r'^[A-Z]$').hasMatch(upper)) {
+        output.write(upper);
+        previousWasSpace = false;
+        continue;
+      }
+
+      String? replacement;
+      for (final entry in _vietnameseLetterGroups.entries) {
+        if (entry.value.contains(character)) {
+          replacement = entry.key;
+          break;
+        }
+      }
+      if (replacement != null) {
+        output.write(replacement);
+        previousWasSpace = false;
+      }
+    }
+
+    return output.toString();
+  }
+
   /// Validates phone number based on wireframe criteria:
   /// - 10 digits total for 0xxxxxxxxx (e.g. 0901234567)
   /// - Or +84 followed by 9 digits (e.g. +84901234567)
@@ -79,16 +130,18 @@ class Validators {
   }
 
   static String? validateFullName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Full name is required';
+    if (value == null || value.isEmpty) {
+      return 'Vui lòng nhập họ và tên';
     }
-    final fullName = value.trim().replaceAll(RegExp(r'\s+'), ' ');
-    final nameRegex = RegExp(r"^[\p{L}][\p{L}\s'.-]*$", unicode: true);
-    if (!nameRegex.hasMatch(fullName)) {
-      return 'Full name can only contain letters and spaces';
+    if (value.startsWith(' ')) {
+      return 'Họ và tên không được bắt đầu bằng khoảng trắng';
     }
-    if (fullName.split(' ').length < 2) {
-      return 'Please enter your full name (at least first and last name)';
+    if (value.contains('  ')) {
+      return 'Chỉ được dùng một khoảng trắng giữa các từ';
+    }
+    if (value != value.toUpperCase() ||
+        !RegExp(r'^[A-Z]+(?: [A-Z]+)+$').hasMatch(value)) {
+      return 'Dùng chữ IN HOA không dấu, chỉ gồm A–Z và khoảng trắng';
     }
     return null;
   }

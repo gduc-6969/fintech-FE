@@ -4,21 +4,51 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      flutter: stable
+      groups:
+        # Add API_BASE_URL to this group in the Codemagic application settings.
+        - aws_backend
+      flutter: 3.44.1
     scripts:
       - name: Get Flutter packages
         script: |
+          set -e
           flutter pub get
+      - name: Validate release configuration
+        script: |
+          set -e
+          if [ -z "${API_BASE_URL:-}" ]; then
+            echo "API_BASE_URL is required. Configure it in Codemagic environment variables."
+            exit 1
+          fi
+          case "$API_BASE_URL" in
+            https://*) ;;
+            *)
+              echo "API_BASE_URL must be a complete HTTPS URL."
+              exit 1
+              ;;
+          esac
+      - name: Run Flutter tests
+        script: |
+          set -e
+          flutter test
+      - name: Check for Dart compile errors
+        script: |
+          set -e
+          flutter analyze --no-fatal-infos
       - name: Build unsigned iOS release
         script: |
-          flutter build ios --release --no-codesign
+          set -e
+          flutter build ios --release --no-codesign \
+            --dart-define="API_BASE_URL=$API_BASE_URL"
       - name: Package into IPA for Sideloadly
         script: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          # Remove any hidden macOS system files to prevent zip corruption
-          find Payload -name ".DS_Store" -delete
-          # Create the IPA cleanly without extra resource forks (-X flag)
+          set -e
+          IPA_DIR="$CM_BUILD_DIR/build/sideload"
+          PAYLOAD_DIR="$IPA_DIR/Payload"
+          mkdir -p "$PAYLOAD_DIR"
+          cp -R "$CM_BUILD_DIR/build/ios/iphoneos/Runner.app" "$PAYLOAD_DIR/"
+          find "$PAYLOAD_DIR" -name ".DS_Store" -delete
+          cd "$IPA_DIR"
           zip -r -X flutter_demo.ipa Payload
     artifacts:
-      - flutter_demo.ipa
+      - build/sideload/flutter_demo.ipa

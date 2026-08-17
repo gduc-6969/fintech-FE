@@ -93,25 +93,16 @@ class _LoginScreenState extends State<LoginScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 10),
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: AppColors.surface.withOpacity(0.2),
-                  width: 2,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                color: AppColors.surface.withOpacity(0.1),
-              ),
-              child: const Center(
-                child: Text(
-                  'Logo',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textWhite,
-                    fontWeight: FontWeight.w600,
-                  ),
+            Semantics(
+              image: true,
+              label: 'CMC logo',
+              child: ExcludeSemantics(
+                child: Image.asset(
+                  'assets/images/cmc_logo.png',
+                  width: 110,
+                  height: 70,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
                 ),
               ),
             ),
@@ -240,9 +231,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     margin: const EdgeInsets.only(top: 16),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.05),
+                      color: AppColors.error.withValues(alpha: 0.05),
                       border: Border.all(
-                        color: AppColors.error.withOpacity(0.3),
+                        color: AppColors.error.withValues(alpha: 0.3),
                       ),
                       borderRadius: BorderRadius.circular(8),
                     ),

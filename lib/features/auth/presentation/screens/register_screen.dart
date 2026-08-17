@@ -6,6 +6,7 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../../core/utils/full_name_input_formatter.dart';
 import '../widgets/auth_layout.dart';
 import '../widgets/fade_up_animation.dart';
 import '../widgets/gradient_button.dart';
@@ -46,7 +47,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.initState();
     final initialData = widget.initialData;
     if (initialData != null) {
-      _fullNameController.text = initialData.fullName;
+      _fullNameController.text = Validators.normalizeRegistrationName(
+        initialData.fullName,
+      ).trim();
       _emailController.text = initialData.email;
       _phoneController.text = initialData.phoneNumber;
       _passwordController.text = initialData.password;
@@ -108,7 +111,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     final payload = RegisterPayload(
-      fullName: _fullNameController.text.trim(),
+      fullName: Validators.normalizeRegistrationName(
+        _fullNameController.text,
+      ).trim(),
       email: _emailController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       password: _passwordController.text,
@@ -252,10 +257,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextFormField(
                       controller: _fullNameController,
                       keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.none,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: const [FullNameInputFormatter()],
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: const InputDecoration(
-                        hintText: 'Nhập họ và tên của bạn',
+                        hintText: 'VD: NGUYEN VAN DUC',
                       ),
                       validator: Validators.validateFullName,
                     ),
@@ -373,15 +379,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: const EdgeInsets.only(left: 4.0, bottom: 20.0),
                   child: Column(
                     children: [
-                      _buildCriteriaItem(
-                        'Ít nhất 8 ký tự',
-                        _hasMinLength,
-                      ),
+                      _buildCriteriaItem('Ít nhất 8 ký tự', _hasMinLength),
                       _buildCriteriaItem('Chứa ít nhất 1 số', _hasNumber),
-                      _buildCriteriaItem(
-                        'Chứa chữ in hoa',
-                        _hasUppercase,
-                      ),
+                      _buildCriteriaItem('Chứa chữ in hoa', _hasUppercase),
                       _buildCriteriaItem(
                         'Chứa ký tự đặc biệt',
                         _hasSpecialChar,

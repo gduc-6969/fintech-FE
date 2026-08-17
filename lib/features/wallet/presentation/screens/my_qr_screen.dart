@@ -105,17 +105,13 @@ class _MyQrScreenState extends State<MyQrScreen> {
 
       if (!mounted) return;
 
-      const saved = true;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            saved
-                ? 'Đã lưu mã QR vào thư viện ảnh!'
-                : 'Không thể lưu ảnh. Vui lòng thử lại.',
+            'Đã lưu mã QR vào thư viện ảnh!',
             style: GoogleFonts.dmSans(),
           ),
-          backgroundColor: saved ? AppColors.success : AppColors.error,
+          backgroundColor: AppColors.success,
           duration: const Duration(seconds: 3),
         ),
       );
