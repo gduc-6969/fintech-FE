@@ -60,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       context.go(AppRouter.wallet);
     } on DioException catch (e) {
+      if (!mounted) return;
       final message = ApiService.parseDioError(e);
       final lowerMsg = message.toLowerCase();
       setState(() {

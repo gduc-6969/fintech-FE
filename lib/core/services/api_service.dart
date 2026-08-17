@@ -56,8 +56,9 @@ class RegisterPayload {
 class ApiService {
   ApiService._();
 
-  static const String _demoHttpBaseUrl =
-      'http://13.213.32.9/fintech-service';
+  static const String _invalidSessionMessage =
+      'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.';
+  static const String _demoHttpBaseUrl = 'http://13.213.32.9/fintech-service';
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: _demoHttpBaseUrl,
@@ -71,6 +72,7 @@ class ApiService {
   static const String _phoneStorageKey = 'auth_phone_number';
   static final ValueNotifier<bool> authState = ValueNotifier<bool>(false);
   static bool _sessionInitialized = false;
+  static bool _isConfigured = false;
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _baseUrl,
@@ -84,6 +86,15 @@ class ApiService {
       },
     ),
   );
+
+  @visibleForTesting
+  static HttpClientAdapter get httpClientAdapterForTesting =>
+      _dio.httpClientAdapter;
+
+  @visibleForTesting
+  static set httpClientAdapterForTesting(HttpClientAdapter adapter) {
+    _dio.httpClientAdapter = adapter;
+  }
 
   static bool get isAuthenticated =>
       authToken != null && !_isTokenExpired(authToken!);
@@ -119,7 +130,7 @@ class ApiService {
   }
 
   static void configure() {
-    if (_dio.interceptors.isNotEmpty) return;
+    if (_isConfigured) return;
     final apiUri = Uri.tryParse(_baseUrl);
     if (apiUri == null || !apiUri.hasScheme || apiUri.host.isEmpty) {
       throw StateError(
@@ -146,8 +157,7 @@ class ApiService {
           handler.next(options);
         },
         onError: (error, handler) async {
-          if (error.response?.statusCode == 401 &&
-              error.requestOptions.path.contains('/private/')) {
+          if (_isPrivateAuthenticationFailure(error)) {
             await clearSession();
           }
           handler.next(error);
@@ -167,6 +177,7 @@ class ApiService {
         ),
       );
     }
+    _isConfigured = true;
   }
 
   static Future<void> initializeSession() async {
@@ -222,6 +233,12 @@ class ApiService {
     await _secureStorage.delete(key: _tokenStorageKey);
     await _secureStorage.delete(key: _phoneStorageKey);
     if (notify) authState.value = false;
+  }
+
+  static bool _isPrivateAuthenticationFailure(DioException exception) {
+    final statusCode = exception.response?.statusCode;
+    return exception.requestOptions.path.contains('/private/') &&
+        (statusCode == 401 || statusCode == 403);
   }
 
   static Future<Map<String, dynamic>> getWallet() async {
@@ -407,13 +424,28 @@ class ApiService {
           responseData['token'] as String? ??
           responseData['accessToken'] as String? ??
           (responseData['data'] is Map<String, dynamic>
-              ? responseData['data']['token'] as String?
+              ? responseData['data']['token'] as String? ??
+                    responseData['data']['accessToken'] as String?
               : null);
-      if (token != null) {
-        _parseAndSetToken(token);
+      final accessToken = token?.trim();
+      if (accessToken != null && accessToken.isNotEmpty) {
+        _parseAndSetToken(accessToken);
+        if (!isAuthenticated) {
+          await clearSession(notify: false);
+          throw DioException(
+            requestOptions: response.requestOptions,
+            response: response,
+            type: DioExceptionType.badResponse,
+            message: _invalidSessionMessage,
+          );
+        }
         currentUserPhoneNumber = _normalizeVietnamPhoneNumber(phoneNumber);
-        await _persistSession(token, currentUserPhoneNumber!);
-        return token;
+        final responseFullName = responseData['fullName']?.toString().trim();
+        if (responseFullName != null && responseFullName.isNotEmpty) {
+          currentUserFullName = responseFullName;
+        }
+        await _persistSession(accessToken, currentUserPhoneNumber!);
+        return accessToken;
       }
     }
     throw DioException(
@@ -690,6 +722,10 @@ class ApiService {
         exception.type == DioExceptionType.receiveTimeout ||
         exception.type == DioExceptionType.sendTimeout) {
       return 'Yêu cầu hết thời gian chờ. Vui lòng thử lại.';
+    }
+
+    if (_isPrivateAuthenticationFailure(exception)) {
+      return _invalidSessionMessage;
     }
 
     final responseData = exception.response?.data;
