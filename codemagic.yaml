@@ -4,10 +4,11 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      groups:
-        # Add API_BASE_URL to this group in the Codemagic application settings.
-        - aws_backend
       flutter: 3.44.1
+      vars:
+        # Temporary sideload-demo endpoint. Replace with HTTPS before production.
+        API_BASE_URL: "http://13.213.32.9/fintech-service"
+        ALLOW_INSECURE_HTTP: "true"
     scripts:
       - name: Get Flutter packages
         script: |
@@ -17,13 +18,19 @@ workflows:
         script: |
           set -e
           if [ -z "${API_BASE_URL:-}" ]; then
-            echo "API_BASE_URL is required. Configure it in Codemagic environment variables."
+            echo "API_BASE_URL is required."
             exit 1
           fi
           case "$API_BASE_URL" in
             https://*) ;;
+            http://13.213.32.9/fintech-service)
+              if [ "${ALLOW_INSECURE_HTTP:-false}" != "true" ]; then
+                echo "The temporary HTTP demo endpoint requires ALLOW_INSECURE_HTTP=true."
+                exit 1
+              fi
+              ;;
             *)
-              echo "API_BASE_URL must be a complete HTTPS URL."
+              echo "API_BASE_URL must use HTTPS or match the approved HTTP demo endpoint."
               exit 1
               ;;
           esac
@@ -39,7 +46,8 @@ workflows:
         script: |
           set -e
           flutter build ios --release --no-codesign \
-            --dart-define="API_BASE_URL=$API_BASE_URL"
+            --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="ALLOW_INSECURE_HTTP=$ALLOW_INSECURE_HTTP"
       - name: Package into IPA for Sideloadly
         script: |
           set -e

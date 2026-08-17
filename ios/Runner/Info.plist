@@ -10,6 +10,12 @@
 	<string>Ứng dụng cần quyền truy cập thư viện ảnh để lưu mã QR của bạn.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Ứng dụng cần quyền lưu ảnh vào thư viện để lưu mã QR của bạn.</string>
+	<!-- Temporary for the AWS IP-based HTTP sideload demo. Remove after HTTPS migration. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

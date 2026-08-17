@@ -56,9 +56,15 @@ class RegisterPayload {
 class ApiService {
   ApiService._();
 
+  static const String _demoHttpBaseUrl =
+      'http://13.213.32.9/fintech-service';
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://13.213.32.9/fintech-service',
+    defaultValue: _demoHttpBaseUrl,
+  );
+  static const bool _allowInsecureHttp = bool.fromEnvironment(
+    'ALLOW_INSECURE_HTTP',
+    defaultValue: false,
   );
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const String _tokenStorageKey = 'auth_access_token';
@@ -120,8 +126,13 @@ class ApiService {
         'Invalid API_BASE_URL. Pass a complete URL with --dart-define.',
       );
     }
-    if (kReleaseMode && apiUri.scheme != 'https') {
-      throw StateError('Release builds require an HTTPS API_BASE_URL.');
+    final isApprovedHttpDemo =
+        _allowInsecureHttp && _baseUrl == _demoHttpBaseUrl;
+    if (kReleaseMode && apiUri.scheme != 'https' && !isApprovedHttpDemo) {
+      throw StateError(
+        'Release builds require HTTPS unless the approved HTTP demo endpoint '
+        'is enabled explicitly.',
+      );
     }
     _dio.interceptors.add(
       InterceptorsWrapper(
