@@ -296,7 +296,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
   String _formatCurrency(num value) =>
       NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(value);
 
-  bool get _requiresFaceId => FaceIdPolicy.isRequiredFor(widget.data.amount);
+  bool get _requiresFaceId => FaceIdPolicy.isRequiredFor(widget.data);
 
   bool get _hasUsableFaceToken =>
       !_requiresFaceId ||

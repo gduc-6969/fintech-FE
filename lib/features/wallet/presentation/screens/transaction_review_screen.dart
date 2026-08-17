@@ -68,7 +68,7 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
     }
     final idempotencyKey = '$prefix-${const Uuid().v7()}';
     final data = widget.data.copyWith(idempotencyKey: idempotencyKey);
-    if (FaceIdPolicy.isRequiredFor(data.amount)) {
+    if (FaceIdPolicy.isRequiredFor(data)) {
       context.push('/transaction/face-id', extra: data);
     } else {
       context.push(
@@ -163,7 +163,7 @@ class _TransactionReviewScreenState extends State<TransactionReviewScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (FaceIdPolicy.isRequiredFor(amount)) ...[
+            if (FaceIdPolicy.isRequiredFor(widget.data)) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),

@@ -1,16 +1,56 @@
+import 'package:fintech_fe/core/models/transaction_flow_data.dart';
 import 'package:fintech_fe/features/face_id/domain/face_id_policy.dart';
 import 'package:fintech_fe/features/face_id/domain/face_id_token.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('FaceIdPolicy', () {
-    test('does not require Face ID below ten million VND', () {
-      expect(FaceIdPolicy.isRequiredFor(9999999), isFalse);
+    TransactionFlowData transaction(TransactionType type, int amount) {
+      return TransactionFlowData(
+        type: type,
+        fromName: 'Sender',
+        toName: 'Recipient',
+        amount: amount,
+      );
+    }
+
+    test('does not require Face ID for a transfer below ten million VND', () {
+      expect(
+        FaceIdPolicy.isRequiredFor(
+          transaction(TransactionType.transfer, 9999999),
+        ),
+        isFalse,
+      );
     });
 
-    test('requires Face ID at and above ten million VND', () {
-      expect(FaceIdPolicy.isRequiredFor(10000000), isTrue);
-      expect(FaceIdPolicy.isRequiredFor(10000001), isTrue);
+    test('requires Face ID for transfers at and above ten million VND', () {
+      expect(
+        FaceIdPolicy.isRequiredFor(
+          transaction(TransactionType.transfer, 10000000),
+        ),
+        isTrue,
+      );
+      expect(
+        FaceIdPolicy.isRequiredFor(
+          transaction(TransactionType.transfer, 10000001),
+        ),
+        isTrue,
+      );
+    });
+
+    test('never requires Face ID for deposits or withdrawals', () {
+      expect(
+        FaceIdPolicy.isRequiredFor(
+          transaction(TransactionType.deposit, 100000000),
+        ),
+        isFalse,
+      );
+      expect(
+        FaceIdPolicy.isRequiredFor(
+          transaction(TransactionType.withdraw, 100000000),
+        ),
+        isFalse,
+      );
     });
 
     test('captures the frame sequence expected by passive liveness', () {
