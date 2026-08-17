@@ -40,5 +40,15 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('marks direct Python verification results as demo-only', () {
+      final token = FaceIdToken.fromJson({
+        'faceIdToken': 'TXN-12345678',
+        'expiresInSeconds': 300,
+        'directDemo': true,
+      }, issuedAt: issuedAt);
+
+      expect(token.isDirectDemo, isTrue);
+    });
   });
 }

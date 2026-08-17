@@ -27,6 +27,7 @@ class TransactionFaceIdScreen extends StatefulWidget {
 class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
   bool _verifying = false;
   bool _notRegistered = false;
+  bool _directDemoVerified = false;
   String? _error;
 
   String get _amount => NumberFormat.currency(
@@ -48,12 +49,20 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
     setState(() {
       _verifying = true;
       _notRegistered = false;
+      _directDemoVerified = false;
       _error = null;
     });
     try {
       final token = await FaceIdService.verifyForTransaction(images);
       images.clear();
       if (!mounted) return;
+      if (token.isDirectDemo) {
+        setState(() {
+          _verifying = false;
+          _directDemoVerified = true;
+        });
+        return;
+      }
       context.pushReplacement(
         '/transaction/verify',
         extra: TransactionAuthorizationData(
@@ -190,6 +199,15 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
                           color: _notRegistered
                               ? AppColors.warning
                               : AppColors.error,
+                        ),
+                      ],
+                      if (_directDemoVerified) ...[
+                        const SizedBox(height: 14),
+                        const FaceIdBanner(
+                          message:
+                              'Xác thực khuôn mặt trực tiếp thành công. Đây là chế độ thử nghiệm nên giao dịch chưa được gửi.',
+                          icon: Icons.check_circle_outline_rounded,
+                          color: Colors.green,
                         ),
                       ],
                       if (_verifying) ...[

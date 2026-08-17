@@ -1,8 +1,13 @@
 class FaceIdToken {
   final String value;
   final DateTime expiresAt;
+  final bool isDirectDemo;
 
-  const FaceIdToken({required this.value, required this.expiresAt});
+  const FaceIdToken({
+    required this.value,
+    required this.expiresAt,
+    this.isDirectDemo = false,
+  });
 
   factory FaceIdToken.fromJson(
     Map<String, dynamic> json, {
@@ -16,6 +21,7 @@ class FaceIdToken {
     return FaceIdToken(
       value: value,
       expiresAt: (issuedAt ?? DateTime.now()).add(Duration(seconds: ttl)),
+      isDirectDemo: json['directDemo'] == true,
     );
   }
 

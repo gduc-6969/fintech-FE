@@ -59,9 +59,18 @@ class ApiService {
   static const String _invalidSessionMessage =
       'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.';
   static const String _demoHttpBaseUrl = 'http://13.213.32.9/fintech-service';
+  static const String _demoFaceIdBaseUrl = 'http://47.129.142.105:5001';
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: _demoHttpBaseUrl,
+  );
+  static const String _faceIdBaseUrl = String.fromEnvironment(
+    'FACEID_API_BASE_URL',
+    defaultValue: _demoFaceIdBaseUrl,
+  );
+  static const bool _useDirectFaceId = bool.fromEnvironment(
+    'USE_DIRECT_FACEID',
+    defaultValue: true,
   );
   static const bool _allowInsecureHttp = bool.fromEnvironment(
     'ALLOW_INSECURE_HTTP',
@@ -86,6 +95,19 @@ class ApiService {
       },
     ),
   );
+  static final Dio _faceIdDio = Dio(
+    BaseOptions(
+      baseUrl: _faceIdBaseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 90),
+      sendTimeout: const Duration(seconds: 90),
+      responseType: ResponseType.json,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ),
+  );
 
   @visibleForTesting
   static HttpClientAdapter get httpClientAdapterForTesting =>
@@ -96,9 +118,19 @@ class ApiService {
     _dio.httpClientAdapter = adapter;
   }
 
+  @visibleForTesting
+  static HttpClientAdapter get faceIdHttpClientAdapterForTesting =>
+      _faceIdDio.httpClientAdapter;
+
+  @visibleForTesting
+  static set faceIdHttpClientAdapterForTesting(HttpClientAdapter adapter) {
+    _faceIdDio.httpClientAdapter = adapter;
+  }
+
   static bool get isAuthenticated =>
       authToken != null && !_isTokenExpired(authToken!);
   static bool get isSessionInitialized => _sessionInitialized;
+  static bool get isDirectFaceIdDemo => _useDirectFaceId;
 
   static void _requireAuthentication() {
     if (!isAuthenticated) {
@@ -107,6 +139,7 @@ class ApiService {
   }
 
   static String? authToken;
+  static String? currentUserId;
   static String? currentUserFullName;
   static String? currentUserPhoneNumber;
 
@@ -119,9 +152,9 @@ class ApiService {
         final normalized = base64Url.normalize(payloadStr);
         final payloadJson = utf8.decode(base64Url.decode(normalized));
         final payload = jsonDecode(payloadJson);
-        if (payload is Map<String, dynamic> &&
-            payload.containsKey('fullName')) {
-          currentUserFullName = payload['fullName'] as String?;
+        if (payload is Map<String, dynamic>) {
+          currentUserId = payload['userId']?.toString();
+          currentUserFullName = payload['fullName']?.toString();
         }
       }
     } catch (e) {
@@ -143,6 +176,24 @@ class ApiService {
       throw StateError(
         'Release builds require HTTPS unless the approved HTTP demo endpoint '
         'is enabled explicitly.',
+      );
+    }
+    final faceIdUri = Uri.tryParse(_faceIdBaseUrl);
+    if (_useDirectFaceId &&
+        (faceIdUri == null || !faceIdUri.hasScheme || faceIdUri.host.isEmpty)) {
+      throw StateError(
+        'Invalid FACEID_API_BASE_URL. Pass a complete URL with --dart-define.',
+      );
+    }
+    final isApprovedFaceIdHttpDemo =
+        _allowInsecureHttp && _faceIdBaseUrl == _demoFaceIdBaseUrl;
+    if (_useDirectFaceId &&
+        kReleaseMode &&
+        faceIdUri!.scheme != 'https' &&
+        !isApprovedFaceIdHttpDemo) {
+      throw StateError(
+        'Direct Face ID release builds require HTTPS unless the approved '
+        'HTTP demo endpoint is enabled explicitly.',
       );
     }
     _dio.interceptors.add(
@@ -194,6 +245,7 @@ class ApiService {
       }
     } catch (_) {
       authToken = null;
+      currentUserId = null;
       currentUserFullName = null;
       currentUserPhoneNumber = null;
     } finally {
@@ -228,6 +280,7 @@ class ApiService {
 
   static Future<void> clearSession({bool notify = true}) async {
     authToken = null;
+    currentUserId = null;
     currentUserFullName = null;
     currentUserPhoneNumber = null;
     await _secureStorage.delete(key: _tokenStorageKey);
@@ -440,6 +493,10 @@ class ApiService {
           );
         }
         currentUserPhoneNumber = _normalizeVietnamPhoneNumber(phoneNumber);
+        final responseUserId = responseData['userId']?.toString().trim();
+        if (responseUserId != null && responseUserId.isNotEmpty) {
+          currentUserId = responseUserId;
+        }
         final responseFullName = responseData['fullName']?.toString().trim();
         if (responseFullName != null && responseFullName.isNotEmpty) {
           currentUserFullName = responseFullName;
@@ -532,9 +589,97 @@ class ApiService {
 
   // ── Face ID / remote facial verification ──
 
+  static String _requireFaceIdUserId() {
+    _requireAuthentication();
+    final userId = currentUserId?.trim();
+    if (userId == null || userId.isEmpty) {
+      throw StateError('Authenticated session does not contain a user ID.');
+    }
+    return userId;
+  }
+
+  static DioException _normalizeDirectFaceIdError(
+    DioException exception, {
+    required String fallbackCode,
+  }) {
+    final response = exception.response;
+    final responseData = response?.data;
+    final data = responseData is Map
+        ? Map<String, dynamic>.from(responseData)
+        : <String, dynamic>{};
+    final message = data['message']?.toString() ?? exception.message;
+    final lowerMessage = message?.toLowerCase() ?? '';
+    final errorCode = response == null
+        ? 'FACEID_SERVICE_UNAVAILABLE'
+        : lowerMessage.contains('chưa đăng ký') ||
+              lowerMessage.contains('chua dang ky')
+        ? 'FACEID_NOT_REGISTERED'
+        : fallbackCode;
+    data['error'] = errorCode;
+    data['message'] = message ?? 'Face ID request failed.';
+    return DioException(
+      requestOptions: exception.requestOptions,
+      response: Response<dynamic>(
+        requestOptions: exception.requestOptions,
+        statusCode: response?.statusCode ?? 503,
+        statusMessage: response?.statusMessage,
+        headers: response?.headers,
+        data: data,
+      ),
+      type: exception.type,
+      error: exception.error,
+      message: data['message']?.toString(),
+    );
+  }
+
+  static DioException _directFaceIdRejection(
+    Response<dynamic> response, {
+    required String fallbackCode,
+  }) {
+    return _normalizeDirectFaceIdError(
+      DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+      ),
+      fallbackCode: fallbackCode,
+    );
+  }
+
   static Future<Map<String, dynamic>> registerFaceIdEnrollment({
     required List<String> images,
   }) async {
+    if (_useDirectFaceId) {
+      final userId = _requireFaceIdUserId();
+      try {
+        final response = await _faceIdDio.post(
+          '/api/register_ekyc',
+          data: {'user_id': userId, 'images': images},
+        );
+        if (response.data is Map<String, dynamic>) {
+          final data = response.data as Map<String, dynamic>;
+          if (data['success'] == true) {
+            return {...data, 'directDemo': true};
+          }
+          throw _directFaceIdRejection(
+            response,
+            fallbackCode: 'FACEID_VERIFICATION_FAILED',
+          );
+        }
+        throw Exception('Invalid direct Face ID enrollment response');
+      } on DioException catch (exception) {
+        if (exception.response?.data is Map<String, dynamic> &&
+            (exception.response!.data as Map<String, dynamic>)['error'] !=
+                null) {
+          rethrow;
+        }
+        throw _normalizeDirectFaceIdError(
+          exception,
+          fallbackCode: 'FACEID_VERIFICATION_FAILED',
+        );
+      }
+    }
+
     _requireAuthentication();
     final response = await _dio.post(
       '/private/api/v1/wallet/faceid/register-ekyc',
@@ -553,6 +698,49 @@ class ApiService {
   static Future<Map<String, dynamic>> verifyFaceId({
     required List<String> images,
   }) async {
+    if (_useDirectFaceId) {
+      final userId = _requireFaceIdUserId();
+      try {
+        final response = await _faceIdDio.post(
+          '/api/verify_faceid',
+          data: {
+            'user_id': userId,
+            'images': images,
+            'active_liveness_passed': false,
+          },
+        );
+        if (response.data is Map<String, dynamic>) {
+          final data = response.data as Map<String, dynamic>;
+          final transactionId = data['tx_id']?.toString();
+          if (data['success'] == true &&
+              transactionId != null &&
+              transactionId.isNotEmpty) {
+            return {
+              ...data,
+              'faceIdToken': transactionId,
+              'expiresInSeconds': 300,
+              'directDemo': true,
+            };
+          }
+          throw _directFaceIdRejection(
+            response,
+            fallbackCode: 'FACEID_VERIFICATION_FAILED',
+          );
+        }
+        throw Exception('Invalid direct Face ID verification response');
+      } on DioException catch (exception) {
+        if (exception.response?.data is Map<String, dynamic> &&
+            (exception.response!.data as Map<String, dynamic>)['error'] !=
+                null) {
+          rethrow;
+        }
+        throw _normalizeDirectFaceIdError(
+          exception,
+          fallbackCode: 'FACEID_VERIFICATION_FAILED',
+        );
+      }
+    }
+
     _requireAuthentication();
     final response = await _dio.post(
       '/private/api/v1/wallet/faceid/verify',

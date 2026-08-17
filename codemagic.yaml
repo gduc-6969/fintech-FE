@@ -8,6 +8,8 @@ workflows:
       vars:
         # Temporary sideload-demo endpoint. Replace with HTTPS before production.
         API_BASE_URL: "http://13.213.32.9/fintech-service"
+        FACEID_API_BASE_URL: "http://47.129.142.105:5001"
+        USE_DIRECT_FACEID: "true"
         ALLOW_INSECURE_HTTP: "true"
     scripts:
       - name: Get Flutter packages
@@ -34,6 +36,25 @@ workflows:
               exit 1
               ;;
           esac
+          if [ "${USE_DIRECT_FACEID:-false}" = "true" ]; then
+            if [ -z "${FACEID_API_BASE_URL:-}" ]; then
+              echo "FACEID_API_BASE_URL is required when USE_DIRECT_FACEID=true."
+              exit 1
+            fi
+            case "$FACEID_API_BASE_URL" in
+              https://*) ;;
+              http://47.129.142.105:5001)
+                if [ "${ALLOW_INSECURE_HTTP:-false}" != "true" ]; then
+                  echo "The temporary Face ID HTTP endpoint requires ALLOW_INSECURE_HTTP=true."
+                  exit 1
+                fi
+                ;;
+              *)
+                echo "FACEID_API_BASE_URL must use HTTPS or match the approved HTTP demo endpoint."
+                exit 1
+                ;;
+            esac
+          fi
       - name: Run Flutter tests
         script: |
           set -e
@@ -47,6 +68,8 @@ workflows:
           set -e
           flutter build ios --release --no-codesign \
             --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="FACEID_API_BASE_URL=$FACEID_API_BASE_URL" \
+            --dart-define="USE_DIRECT_FACEID=$USE_DIRECT_FACEID" \
             --dart-define="ALLOW_INSECURE_HTTP=$ALLOW_INSECURE_HTTP"
       - name: Package into IPA for Sideloadly
         script: |
