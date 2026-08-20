@@ -6,10 +6,8 @@ workflows:
     environment:
       flutter: 3.44.1
       vars:
-        # AWS endpoint
-        # Replace with HTTPS before production.
-        API_BASE_URL: "http://13.213.32.9/fintech-service"
-        ALLOW_INSECURE_HTTP: "true"
+        # Public HTTPS gateway for the fintech backend.
+        API_BASE_URL: "https://api.fintech-seggs.xyz/fintech-service"
     scripts:
       - name: Get Flutter packages
         script: |
@@ -24,31 +22,12 @@ workflows:
           fi
           case "$API_BASE_URL" in
             https://*)
-              if [ "${ALLOW_INSECURE_HTTP:-false}" = "true" ]; then
-                echo "HTTPS builds must set ALLOW_INSECURE_HTTP=false."
-                exit 1
-              fi
-              ;;
-            http://13.213.32.9/fintech-service)
-              if [ "${ALLOW_INSECURE_HTTP:-false}" != "true" ]; then
-                echo "The temporary HTTP demo endpoint requires ALLOW_INSECURE_HTTP=true."
-                exit 1
-              fi
               ;;
             *)
-              echo "API_BASE_URL must use HTTPS or match the approved HTTP demo endpoint."
+              echo "API_BASE_URL must use HTTPS."
               exit 1
               ;;
           esac
-      - name: Configure demo-only iOS HTTP exception
-        script: |
-          set -e
-          PLIST="$CM_BUILD_DIR/ios/Runner/Info.plist"
-          if [ "${ALLOW_INSECURE_HTTP:-false}" = "true" ]; then
-            /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
-            /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST"
-          fi
       - name: Run Flutter tests
         script: |
           set -e
@@ -61,8 +40,7 @@ workflows:
         script: |
           set -e
           flutter build ios --release --no-codesign \
-            --dart-define="API_BASE_URL=$API_BASE_URL" \
-            --dart-define="ALLOW_INSECURE_HTTP=$ALLOW_INSECURE_HTTP"
+            --dart-define="API_BASE_URL=$API_BASE_URL"
       - name: Package into IPA for Sideloadly
         script: |
           set -e

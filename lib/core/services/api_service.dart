@@ -58,16 +58,12 @@ class ApiService {
 
   static const String _invalidSessionMessage =
       'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.';
-  // AWS endpoint
-  static const String _demoHttpBaseUrl =
-      'http://13.213.32.9/fintech-service';
+  // Public HTTPS gateway for the fintech backend.
+  static const String _defaultBaseUrl =
+      'https://api.fintech-seggs.xyz/fintech-service';
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: _demoHttpBaseUrl,
-  );
-  static const bool _allowInsecureHttp = bool.fromEnvironment(
-    'ALLOW_INSECURE_HTTP',
-    defaultValue: false,
+    defaultValue: _defaultBaseUrl,
   );
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const String _tokenStorageKey = 'auth_access_token';
@@ -139,12 +135,9 @@ class ApiService {
         'Invalid API_BASE_URL. Pass a complete URL with --dart-define.',
       );
     }
-    final isApprovedHttpDemo =
-        _allowInsecureHttp && _baseUrl == _demoHttpBaseUrl;
-    if (kReleaseMode && apiUri.scheme != 'https' && !isApprovedHttpDemo) {
+    if (kReleaseMode && apiUri.scheme != 'https') {
       throw StateError(
-        'Release builds require HTTPS unless the approved HTTP demo endpoint '
-        'is enabled explicitly.',
+        'Release builds require an HTTPS API_BASE_URL.',
       );
     }
     _dio.interceptors.add(
@@ -185,15 +178,11 @@ class ApiService {
   static Future<void> initializeSession() async {
     configure();
     try {
-      final token = await _secureStorage.read(key: _tokenStorageKey);
-      if (token != null && !_isTokenExpired(token)) {
-        _parseAndSetToken(token);
-        currentUserPhoneNumber = await _secureStorage.read(
-          key: _phoneStorageKey,
-        );
-      } else {
-        await clearSession(notify: false);
-      }
+      // Authentication is intentionally process-scoped.  Do not restore a
+      // previous JWT after the app has been force-closed and relaunched; this
+      // ensures an app removed from the iOS/Android task switcher starts at
+      // Login instead of silently reopening an authenticated wallet.
+      await clearSession(notify: false);
     } catch (_) {
       authToken = null;
       currentUserId = null;
