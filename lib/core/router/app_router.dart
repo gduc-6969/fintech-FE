@@ -69,8 +69,8 @@ class AppRouter {
       }
       return null;
     },
-    errorBuilder: (context, state) => _RouteErrorScreen(
-      message: state.error?.toString() ?? 'Không thể mở màn hình này.',
+    errorBuilder: (context, state) => const _RouteErrorScreen(
+      message: 'Không thể mở màn hình này. Vui lòng quay lại và thử lại.',
     ),
     routes: [
       GoRoute(path: splash, builder: (context, state) => const SplashScreen()),

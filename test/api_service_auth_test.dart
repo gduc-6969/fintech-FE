@@ -41,14 +41,68 @@ void main() {
       );
     });
 
-    test('does not reinterpret a public 403 as an expired session', () {
+    test('maps a public 403 to a safe authorization message', () {
       final exception = _responseException(
         path: '/public/api/v1/auth/login',
         statusCode: 403,
         data: {'error': 'Forbidden'},
       );
 
-      expect(ApiService.parseDioError(exception), 'Forbidden');
+      expect(
+        ApiService.parseDioError(exception),
+        'Bạn không thể thực hiện thao tác này.',
+      );
+    });
+
+    test('maps backend error codes to localized UX messages', () {
+      final exception = _responseException(
+        path: '/private/api/v1/wallet/transfer',
+        statusCode: 400,
+        data: {'error': 'INVALID_PIN', 'message': 'Ma PIN khong dung.'},
+      );
+
+      expect(ApiService.parseErrorCode(exception), 'INVALID_PIN');
+      expect(
+        ApiService.parseDioError(exception),
+        'Mã PIN chưa đúng. Vui lòng kiểm tra lại.',
+      );
+    });
+
+    test('does not expose unknown backend codes or technical details', () {
+      final exception = _responseException(
+        path: '/public/api/v1/auth/login',
+        statusCode: 500,
+        data: {
+          'error': 'DATABASE_CONNECTION_STACK_TRACE',
+          'message': 'org.hibernate.JDBCConnectionException',
+          'detail': 'jdbc:postgresql://internal-host:5432/fintech',
+        },
+      );
+
+      final message = ApiService.parseDioError(exception);
+      expect(
+        message,
+        'Hệ thống đang tạm thời gián đoạn. Vui lòng thử lại sau.',
+      );
+      expect(message, isNot(contains('DATABASE_CONNECTION_STACK_TRACE')));
+      expect(message, isNot(contains('hibernate')));
+      expect(message, isNot(contains('postgresql')));
+    });
+
+    test('does not expose connection exception details', () {
+      final requestOptions = RequestOptions(path: '/public/api/v1/auth/login');
+      final exception = DioException(
+        requestOptions: requestOptions,
+        type: DioExceptionType.connectionError,
+        message: 'SocketException: Failed host lookup: internal-api.local',
+      );
+
+      final message = ApiService.parseDioError(exception);
+      expect(
+        message,
+        'Không thể kết nối đến hệ thống. Vui lòng kiểm tra kết nối mạng và thử lại.',
+      );
+      expect(message, isNot(contains('internal-api.local')));
     });
   });
 

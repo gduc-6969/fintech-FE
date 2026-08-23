@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../errors/ui_error_mapper.dart';
 import '../models/transaction_flow_data.dart';
 
 class RegisterPayload {
@@ -136,9 +137,7 @@ class ApiService {
       );
     }
     if (kReleaseMode && apiUri.scheme != 'https') {
-      throw StateError(
-        'Release builds require an HTTPS API_BASE_URL.',
-      );
+      throw StateError('Release builds require an HTTPS API_BASE_URL.');
     }
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -595,11 +594,7 @@ class ApiService {
 
   /// Returns the backend error-code string (e.g. 'INVALID_PIN', 'PIN_LOCKED').
   static String? parseErrorCode(DioException exception) {
-    final responseData = exception.response?.data;
-    if (responseData is Map<String, dynamic>) {
-      return responseData['error']?.toString();
-    }
-    return null;
+    return UiErrorMapper.errorCode(exception);
   }
 
   // ── Transaction APIs ──────────────────────────────────────────────────────
@@ -739,25 +734,9 @@ class ApiService {
   }
 
   static String parseDioError(DioException exception) {
-    if (exception.type == DioExceptionType.connectionTimeout ||
-        exception.type == DioExceptionType.receiveTimeout ||
-        exception.type == DioExceptionType.sendTimeout) {
-      return 'Yêu cầu hết thời gian chờ. Vui lòng thử lại.';
-    }
-
-    if (_isPrivateAuthenticationFailure(exception)) {
-      return _invalidSessionMessage;
-    }
-
-    final responseData = exception.response?.data;
-    if (responseData is Map<String, dynamic>) {
-      return responseData['message']?.toString() ??
-          responseData['error']?.toString() ??
-          responseData['detail']?.toString() ??
-          exception.message?.toString() ??
-          'Unknown error';
-    }
-
-    return exception.message?.toString() ?? 'Unknown error';
+    return UiErrorMapper.fromDio(
+      exception,
+      isSessionExpired: _isPrivateAuthenticationFailure(exception),
+    );
   }
 }

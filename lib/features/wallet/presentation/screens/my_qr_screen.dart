@@ -74,10 +74,7 @@ class _MyQrScreenState extends State<MyQrScreen> {
             'Cần quyền truy cập thư viện ảnh để lưu mã QR.',
             style: GoogleFonts.dmSans(),
           ),
-          action: SnackBarAction(
-            label: 'Cài đặt',
-            onPressed: openAppSettings,
-          ),
+          action: SnackBarAction(label: 'Cài đặt', onPressed: openAppSettings),
           backgroundColor: AppColors.primaryNavy,
         ),
       );
@@ -88,8 +85,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
 
     try {
       // Capture the QR card as an image
-      final boundary = _qrCardKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          _qrCardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) throw Exception('Render object not found');
 
       final image = await boundary.toImage(pixelRatio: 3.0);
@@ -115,11 +113,14 @@ class _MyQrScreenState extends State<MyQrScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi: ${e.toString()}', style: GoogleFonts.dmSans()),
+          content: Text(
+            'Không thể lưu mã QR. Vui lòng thử lại.',
+            style: GoogleFonts.dmSans(),
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -138,8 +139,11 @@ class _MyQrScreenState extends State<MyQrScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: AppColors.textPrimary, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textPrimary,
+            size: 20,
+          ),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/wallet'),
         ),
@@ -156,13 +160,14 @@ class _MyQrScreenState extends State<MyQrScreen> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.primaryNavy,
+                ),
               ),
             )
           : _error != null
-              ? _buildErrorState()
-              : _buildQrCard(),
+          ? _buildErrorState()
+          : _buildQrCard(),
     );
   }
 
@@ -173,21 +178,27 @@ class _MyQrScreenState extends State<MyQrScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.wifi_off_rounded,
-                color: AppColors.textSecondary, size: 56),
+            Icon(
+              Icons.wifi_off_rounded,
+              color: AppColors.textSecondary,
+              size: 56,
+            ),
             const SizedBox(height: 16),
             Text(
               'Không thể tải mã QR',
               style: GoogleFonts.dmSans(
-                  color: AppColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold),
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               _error ?? '',
-              style:
-                  GoogleFonts.dmSans(color: AppColors.textSecondary, fontSize: 13),
+              style: GoogleFonts.dmSans(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -195,9 +206,12 @@ class _MyQrScreenState extends State<MyQrScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryNavy,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 14,
+                ),
               ),
               onPressed: () {
                 setState(() {
@@ -206,8 +220,10 @@ class _MyQrScreenState extends State<MyQrScreen> {
                 });
                 _loadQr();
               },
-              child: Text('Thử lại',
-                  style: GoogleFonts.dmSans(color: Colors.white)),
+              child: Text(
+                'Thử lại',
+                style: GoogleFonts.dmSans(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -230,7 +246,13 @@ class _MyQrScreenState extends State<MyQrScreen> {
     final displayName = _fullName ?? ApiService.currentUserFullName ?? 'User';
     final phone = _phoneNumber ?? ApiService.currentUserPhoneNumber ?? '';
     final initials = displayName.isNotEmpty
-        ? displayName.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
+        ? displayName
+              .trim()
+              .split(' ')
+              .map((w) => w.isNotEmpty ? w[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
         : 'W';
 
     return SingleChildScrollView(
@@ -332,7 +354,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
                       // WALLI badge
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [AppColors.primaryNavy, AppColors.indigo],
@@ -361,7 +385,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                          color: AppColors.border.withOpacity(0.6), width: 1.5),
+                        color: AppColors.border.withOpacity(0.6),
+                        width: 1.5,
+                      ),
                     ),
                     child: qrBytes != null
                         ? Image.memory(
@@ -377,8 +403,11 @@ class _MyQrScreenState extends State<MyQrScreen> {
                               color: AppColors.inputFill,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(Icons.qr_code_2_rounded,
-                                size: 80, color: AppColors.textSecondary),
+                            child: Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 80,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                   ),
 
@@ -420,15 +449,18 @@ class _MyQrScreenState extends State<MyQrScreen> {
                     foregroundColor: AppColors.primaryNavy,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () {
                     if (phone.isNotEmpty) {
                       Clipboard.setData(ClipboardData(text: phone));
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Đã sao chép số điện thoại!',
-                              style: GoogleFonts.dmSans()),
+                          content: Text(
+                            'Đã sao chép số điện thoại!',
+                            style: GoogleFonts.dmSans(),
+                          ),
                           backgroundColor: AppColors.primaryNavy,
                           duration: const Duration(seconds: 2),
                         ),
@@ -436,7 +468,13 @@ class _MyQrScreenState extends State<MyQrScreen> {
                     }
                   },
                   icon: const Icon(Icons.share_rounded, size: 18),
-                  label: Text('Chia sẻ', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'Chia sẻ',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -447,7 +485,8 @@ class _MyQrScreenState extends State<MyQrScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: _isSaving ? null : _saveQrToGallery,
                   icon: _isSaving
@@ -455,15 +494,19 @@ class _MyQrScreenState extends State<MyQrScreen> {
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white)),
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
                         )
                       : const Icon(Icons.download_rounded, size: 18),
                   label: Text(
                     _isSaving ? 'Đang lưu...' : 'Lưu ảnh',
                     style: GoogleFonts.dmSans(
-                        fontSize: 14, fontWeight: FontWeight.w600),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -474,4 +517,3 @@ class _MyQrScreenState extends State<MyQrScreen> {
     );
   }
 }
-

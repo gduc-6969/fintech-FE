@@ -62,15 +62,13 @@ class _LoginScreenState extends State<LoginScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       final message = ApiService.parseDioError(e);
-      final lowerMsg = message.toLowerCase();
+      final errorCode = ApiService.parseErrorCode(e);
       setState(() {
         _isLoading = false;
-        if (e.response?.statusCode == 401 ||
-            lowerMsg.contains('incorrect') ||
-            lowerMsg.contains('invalid') ||
-            lowerMsg.contains('wrong') ||
-            lowerMsg.contains('password') ||
-            lowerMsg.contains('credentials')) {
+        final isInvalidCredentials =
+            errorCode == 'INVALID_CREDENTIALS' ||
+            (errorCode == null && e.response?.statusCode == 401);
+        if (isInvalidCredentials) {
           _isWrongCredentials = true;
         } else {
           _serverError = message;

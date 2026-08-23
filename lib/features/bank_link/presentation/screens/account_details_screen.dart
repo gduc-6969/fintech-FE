@@ -16,7 +16,7 @@ class AccountDetailsScreen extends StatefulWidget {
 
 class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
   final TextEditingController _accCtrl = TextEditingController();
-  
+
   String _lookupState = 'initial'; // initial, loading, found, error
   String? _accountHolderName;
   String? _errorMessage;
@@ -70,7 +70,8 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       if (match == null) {
         setState(() {
           _lookupState = 'error';
-          _errorMessage = 'Không tìm thấy tài khoản. Vui lòng kiểm tra lại số tài khoản và ngân hàng đã chọn.';
+          _errorMessage =
+              'Không tìm thấy tài khoản. Vui lòng kiểm tra lại số tài khoản và ngân hàng đã chọn.';
           _isLoading = false;
         });
         return;
@@ -78,7 +79,8 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
 
       setState(() {
         _lookupState = 'found';
-        _accountHolderName = match['accountHolderName'] as String? ?? 'KHÔNG XÁC ĐỊNH';
+        _accountHolderName =
+            match['accountHolderName'] as String? ?? 'KHÔNG XÁC ĐỊNH';
         _isLoading = false;
       });
     } on DioException catch (e) {
@@ -112,25 +114,28 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       if (mounted) {
         setState(() => _isConfirming = false);
         final accountNo = _accCtrl.text.trim();
-        final masked = accountNo.length >= 4 
+        final masked = accountNo.length >= 4
             ? '····  ····  ····  ${accountNo.substring(accountNo.length - 4)}'
             : accountNo;
 
         final successData = {
           ...widget.bank,
           'maskedAccount': masked,
-          'holder': response['accountHolderName'] as String? ?? _accountHolderName,
+          'holder':
+              response['accountHolderName'] as String? ?? _accountHolderName,
         };
 
         context.pushReplacement('/bank-link-success', extra: successData);
       }
     } on DioException catch (e) {
       if (mounted) {
+        final errorCode = ApiService.parseErrorCode(e);
         setState(() {
           _lookupState = 'error';
           String parsedMsg = ApiService.parseDioError(e);
-          if (parsedMsg.toLowerCase().contains('already linked')) {
-            parsedMsg = 'Tài khoản ngân hàng này đã được liên kết với một ví khác.';
+          if (errorCode == 'BANK_ACCOUNT_ALREADY_LINKED') {
+            parsedMsg =
+                'Tài khoản ngân hàng này đã được liên kết với một ví khác.';
           }
           _errorMessage = parsedMsg;
           _isConfirming = false;
@@ -157,10 +162,19 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.textPrimary,
+          ),
           onPressed: () => context.pop(),
         ),
-        title: Text('Chi tiết tài khoản', style: GoogleFonts.dmSans(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Chi tiết tài khoản',
+          style: GoogleFonts.dmSans(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -185,26 +199,62 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     alignment: Alignment.center,
-                    child: Text(widget.bank['code'], style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                    child: Text(
+                      widget.bank['code'],
+                      style: GoogleFonts.dmSans(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(widget.bank['name'], style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    child: Text(
+                      widget.bank['name'],
+                      style: GoogleFonts.dmSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => context.pop(),
-                    child: Text('Thay đổi', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    child: Text(
+                      'Thay đổi',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Input Row
             Row(
               children: [
-                Text('SỐ TÀI KHOẢN', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.5)),
-                Text(' *', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.error)),
+                Text(
+                  'SỐ TÀI KHOẢN',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  ' *',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.error,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -217,7 +267,9 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       hintText: 'Nhập số tài khoản',
-                      hintStyle: GoogleFonts.dmSans(color: AppColors.textSecondary),
+                      hintStyle: GoogleFonts.dmSans(
+                        color: AppColors.textSecondary,
+                      ),
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -232,7 +284,10 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: AppColors.primary),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
                     ),
                   ),
                 ),
@@ -248,25 +303,36 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                       disabledForegroundColor: AppColors.textSecondary,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                     ),
-                    child: _isLoading 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text('Tìm', style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            'Tìm',
+                            style: GoogleFonts.dmSans(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Outcomes
-            if (_lookupState == 'error')
-              _buildErrorPanel(),
-            if (_lookupState == 'found')
-              _buildSuccessCard(),
-              
+            if (_lookupState == 'error') _buildErrorPanel(),
+            if (_lookupState == 'found') _buildSuccessCard(),
           ],
         ),
       ),
@@ -286,12 +352,22 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
         children: [
           Icon(Icons.error_outline_rounded, color: AppColors.error, size: 40),
           const SizedBox(height: 16),
-          Text('Liên kết tài khoản thất bại', style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.error)),
+          Text(
+            'Liên kết tài khoản thất bại',
+            style: GoogleFonts.dmSans(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.error,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             _errorMessage ?? 'Đã xảy ra lỗi không xác định.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.error.withOpacity(0.8)),
+            style: GoogleFonts.dmSans(
+              fontSize: 14,
+              color: AppColors.error.withOpacity(0.8),
+            ),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
@@ -300,7 +376,9 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
               backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Thử lại'),
           ),
@@ -311,8 +389,9 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
 
   Widget _buildSuccessCard() {
     final accStr = _accCtrl.text;
-    final masked = '···· ···· ···· ${accStr.length > 4 ? accStr.substring(accStr.length - 4) : accStr}';
-    
+    final masked =
+        '···· ···· ···· ${accStr.length > 4 ? accStr.substring(accStr.length - 4) : accStr}';
+
     return Column(
       children: [
         Container(
@@ -322,7 +401,13 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.border),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,14 +418,34 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                   color: AppColors.success.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text('TÀI KHOẢN ĐÃ XÁC MINH', style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success)),
+                child: Text(
+                  'TÀI KHOẢN ĐÃ XÁC MINH',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.success,
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Số tài khoản', style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecondary)),
-                  Text(masked, style: GoogleFonts.robotoMono(fontSize: 14, color: AppColors.textPrimary, letterSpacing: 1)),
+                  Text(
+                    'Số tài khoản',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    masked,
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 1,
+                    ),
+                  ),
                 ],
               ),
               const Padding(
@@ -350,8 +455,21 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Chủ tài khoản', style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecondary)),
-                  Text(_accountHolderName ?? 'UNKNOWN', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  Text(
+                    'Chủ tài khoản',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    _accountHolderName ?? 'UNKNOWN',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -367,11 +485,26 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
               backgroundColor: AppColors.primaryNavy,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
-            child: _isConfirming 
-                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : Text('Xác nhận & Liên kết tài khoản', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: _isConfirming
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(
+                    'Xác nhận & Liên kết tài khoản',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
       ],
