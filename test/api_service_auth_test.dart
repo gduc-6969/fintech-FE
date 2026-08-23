@@ -184,7 +184,7 @@ void main() {
         });
         ApiService.httpClientAdapterForTesting = adapter;
 
-        final frames = List<String>.generate(5, (index) => 'frame-$index');
+        final frames = List<String>.generate(2, (index) => 'frame-$index');
         final result = await ApiService.verifyFaceId(
           images: frames,
           transaction: _transferTransaction(),
@@ -213,7 +213,7 @@ void main() {
           'expiresInSeconds': 300,
         });
         ApiService.httpClientAdapterForTesting = adapter;
-        final frames = List<String>.generate(5, (index) => 'frame-$index');
+        final frames = List<String>.generate(2, (index) => 'frame-$index');
 
         for (final entry in const <TransactionType, String>{
           TransactionType.deposit: 'TOPUP',
@@ -247,7 +247,7 @@ void main() {
 
         await expectLater(
           ApiService.verifyFaceId(
-            images: List<String>.filled(5, 'frame'),
+            images: List<String>.filled(2, 'frame'),
             transaction: const TransactionFlowData(
               type: TransactionType.transfer,
               fromName: 'Sender',

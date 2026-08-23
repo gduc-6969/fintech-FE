@@ -45,7 +45,7 @@ void main() {
 
     test('captures the frame sequence expected by passive liveness', () {
       expect(FaceIdPolicy.enrollmentFrameCount, 5);
-      expect(FaceIdPolicy.transactionFrameCount, 5);
+      expect(FaceIdPolicy.transactionFrameCount, 2);
       expect(
         FaceIdPolicy.transactionFrameInterval,
         const Duration(milliseconds: 150),
@@ -97,8 +97,11 @@ void main() {
   });
 
   group('FaceIdFramePayload', () {
-    test('accepts exactly five bounded JPEG data URLs', () {
-      final frames = List<String>.generate(5, (_) => _validJpegPayload());
+    test('accepts exactly two bounded transaction JPEG data URLs', () {
+      final frames = List<String>.generate(
+        FaceIdPolicy.transactionFrameCount,
+        (_) => _validJpegPayload(),
+      );
 
       expect(
         () => FaceIdFramePayload.validateBatch(
@@ -109,8 +112,8 @@ void main() {
       );
     });
 
-    test('rejects every frame count except five', () {
-      for (final count in [0, 1, 2, 4, 6, 10]) {
+    test('rejects every transaction frame count except two', () {
+      for (final count in [0, 1, 3, 4, 5, 6, 10]) {
         final frames = List<String>.generate(count, (_) => _validJpegPayload());
         expect(
           () => FaceIdFramePayload.validateBatch(
@@ -125,7 +128,7 @@ void main() {
 
     test('rejects non-JPEG and undersized payloads', () {
       final invalidFrames = List<String>.filled(
-        5,
+        FaceIdPolicy.transactionFrameCount,
         'data:image/png;base64,AAAA',
       );
       expect(

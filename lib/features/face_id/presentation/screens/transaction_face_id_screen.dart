@@ -214,7 +214,7 @@ class _TransactionFaceIdScreenState extends State<TransactionFaceIdScreen> {
                       const SizedBox(height: 14),
                       const FaceIdBanner(
                         message:
-                            'Nhìn thẳng và giữ yên. Một lần quét sẽ ghi nhận năm khung hình để đáp ứng kiểm tra chống giả mạo.',
+                            'Nhìn thẳng và giữ yên. Một lần quét im lặng sẽ ghi nhận hai khung hình để kiểm tra chống giả mạo.',
                         icon: Icons.center_focus_strong_rounded,
                       ),
                       if (_error != null) ...[

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../data/silent_camera_frame.dart';
 import '../../domain/face_capture_batch.dart';
 import '../../domain/face_capture_pose.dart';
 import '../../domain/face_id_frame_payload.dart';
@@ -107,7 +109,11 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
         _camera!,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.jpeg,
+        imageFormatGroup: Platform.isIOS
+            ? ImageFormatGroup.bgra8888
+            : Platform.isAndroid
+            ? ImageFormatGroup.nv21
+            : ImageFormatGroup.unknown,
       );
       await nextController.initialize();
       await _configureCamera(nextController);
@@ -230,20 +236,32 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
       final framesToTake = _isTransaction
           ? FaceIdPolicy.transactionFrameCount
           : 1;
-      for (var frame = 0; frame < framesToTake; frame++) {
-        _ensureCaptureIsActive(generation, controller);
-        final xFile = await controller.takePicture();
-        try {
-          final bytes = await xFile.readAsBytes();
-          final capturedFrame = await _prepareFrame(bytes);
-          _captureBatch.add(capturedFrame);
+      if (_isTransaction && controller.supportsImageStreaming()) {
+        final jpegFrames = await _captureSilentTransactionFrames(
+          controller,
+          generation,
+        );
+        for (final jpegFrame in jpegFrames) {
           _ensureCaptureIsActive(generation, controller);
-          setState(() => _capturedFrameProgress = frame + 1);
-        } finally {
-          await _deleteTemporaryCapture(xFile.path);
+          final capturedFrame = await _prepareFrame(jpegFrame);
+          _captureBatch.add(capturedFrame);
         }
-        if (frame + 1 < framesToTake) {
-          await Future<void>.delayed(FaceIdPolicy.transactionFrameInterval);
+      } else {
+        for (var frame = 0; frame < framesToTake; frame++) {
+          _ensureCaptureIsActive(generation, controller);
+          final xFile = await controller.takePicture();
+          try {
+            final bytes = await xFile.readAsBytes();
+            final capturedFrame = await _prepareFrame(bytes);
+            _captureBatch.add(capturedFrame);
+            _ensureCaptureIsActive(generation, controller);
+            setState(() => _capturedFrameProgress = frame + 1);
+          } finally {
+            await _deleteTemporaryCapture(xFile.path);
+          }
+          if (frame + 1 < framesToTake) {
+            await Future<void>.delayed(FaceIdPolicy.transactionFrameInterval);
+          }
         }
       }
 
@@ -292,6 +310,108 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
         });
       }
     }
+  }
+
+  Future<List<Uint8List>> _captureSilentTransactionFrames(
+    CameraController controller,
+    int generation,
+  ) async {
+    final rawFrames = <SilentCameraFrame>[];
+    final framesReady = Completer<void>();
+    final elapsed = Stopwatch()..start();
+    Duration? lastFrameAt;
+    Timer? timeout;
+    var acceptingFrames = true;
+    var streamStarted = false;
+    Object? captureError;
+    StackTrace? captureStackTrace;
+
+    void failCapture(Object error, [StackTrace? stackTrace]) {
+      if (framesReady.isCompleted) return;
+      acceptingFrames = false;
+      captureError = error;
+      captureStackTrace = stackTrace;
+      framesReady.complete();
+    }
+
+    try {
+      await controller.startImageStream((cameraImage) {
+        if (!acceptingFrames || framesReady.isCompleted) return;
+        if (!mounted ||
+            generation != _captureGeneration ||
+            !identical(controller, _controller)) {
+          failCapture(const _CaptureInterruptedException());
+          return;
+        }
+
+        final now = elapsed.elapsed;
+        if (lastFrameAt != null &&
+            now - lastFrameAt! < FaceIdPolicy.transactionFrameInterval) {
+          return;
+        }
+
+        try {
+          final rotationDegrees = cameraImage.width > cameraImage.height
+              ? controller.description.sensorOrientation
+              : 0;
+          rawFrames.add(
+            SilentCameraFrame.fromCameraImage(
+              cameraImage,
+              rotationDegrees: rotationDegrees,
+            ),
+          );
+          lastFrameAt = now;
+          if (mounted && generation == _captureGeneration) {
+            setState(() => _capturedFrameProgress = rawFrames.length);
+          }
+          if (rawFrames.length == FaceIdPolicy.transactionFrameCount) {
+            acceptingFrames = false;
+            framesReady.complete();
+          }
+        } catch (error, stackTrace) {
+          failCapture(error, stackTrace);
+        }
+      });
+      streamStarted = true;
+      timeout = Timer(const Duration(seconds: 5), () {
+        if (!framesReady.isCompleted) {
+          failCapture(
+            CameraException(
+              'silentCaptureTimeout',
+              'Không nhận được khung hình từ camera.',
+            ),
+            StackTrace.current,
+          );
+        }
+      });
+      await framesReady.future;
+      if (captureError != null) {
+        Error.throwWithStackTrace(
+          captureError!,
+          captureStackTrace ?? StackTrace.current,
+        );
+      }
+    } finally {
+      acceptingFrames = false;
+      timeout?.cancel();
+      elapsed.stop();
+      if (streamStarted &&
+          controller.value.isInitialized &&
+          controller.value.isStreamingImages) {
+        try {
+          await controller.stopImageStream();
+        } on CameraException {
+          // The camera may have been released while the app was backgrounded.
+        }
+      }
+    }
+
+    _ensureCaptureIsActive(generation, controller);
+    final jpegFrames = <Uint8List>[];
+    for (final rawFrame in rawFrames) {
+      jpegFrames.add(await Isolate.run(() => rawFrame.encodeJpeg()));
+    }
+    return jpegFrames;
   }
 
   void _rollbackCaptureAttempt(int checkpoint) {
@@ -507,7 +627,7 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
                         const SizedBox(height: 12),
                         const FaceIdBanner(
                           message:
-                              'Một lần quét sẽ tự động ghi nhận năm khung hình liên tiếp. Hãy giữ yên.',
+                              'Một lần quét sẽ ghi nhận hai khung hình liên tiếp mà không phát âm thanh chụp. Hãy giữ yên.',
                           icon: Icons.center_focus_strong_rounded,
                         ),
                         if (_capturing && _countdown == null) ...[
