@@ -5,6 +5,9 @@ import 'package:image/image.dart' as image_lib;
 
 enum SilentCameraPixelFormat { bgra8888, nv21 }
 
+Uint8List encodeSilentCameraFrame(SilentCameraFrame frame) =>
+    frame.encodeJpeg();
+
 /// An isolate-safe copy of a camera preview frame.
 ///
 /// Transaction verification uses preview frames instead of [CameraController]
@@ -51,6 +54,26 @@ class SilentCameraFrame {
           rotationDegrees: rotationDegrees,
           bytes: Uint8List.fromList(plane.bytes),
         );
+      case ImageFormatGroup.yuv420:
+        return SilentCameraFrame.nv21(
+          width: frame.width,
+          height: frame.height,
+          rotationDegrees: rotationDegrees,
+          bytes: _copyYuv420ToNv21(frame),
+        );
+      case ImageFormatGroup.unknown:
+        if (frame.planes.length == 1 &&
+            plane.bytesPerRow >= frame.width * 4 &&
+            plane.bytes.length >= plane.bytesPerRow * frame.height) {
+          return SilentCameraFrame.bgra8888(
+            width: frame.width,
+            height: frame.height,
+            rowStride: plane.bytesPerRow,
+            rotationDegrees: rotationDegrees,
+            bytes: Uint8List.fromList(plane.bytes),
+          );
+        }
+        throw const FormatException('Unknown camera preview buffer layout.');
       default:
         throw FormatException(
           'Unsupported silent camera format: ${frame.format.group.name}.',
@@ -152,6 +175,81 @@ class SilentCameraFrame {
       }
     }
     return decoded;
+  }
+
+  static Uint8List _copyYuv420ToNv21(CameraImage frame) {
+    if (frame.planes.length < 2) {
+      throw const FormatException('Invalid YUV420 camera preview buffer.');
+    }
+
+    final output = Uint8List(frame.width * frame.height * 3 ~/ 2);
+    final yPlane = frame.planes[0];
+    for (var y = 0; y < frame.height; y++) {
+      for (var x = 0; x < frame.width; x++) {
+        output[y * frame.width + x] = _samplePlane(
+          yPlane,
+          row: y,
+          column: x,
+          fallbackPixelStride: 1,
+        );
+      }
+    }
+
+    final chromaStart = frame.width * frame.height;
+    final chromaHeight = frame.height ~/ 2;
+    final chromaWidth = frame.width ~/ 2;
+    if (frame.planes.length == 2) {
+      final uvPlane = frame.planes[1];
+      for (var y = 0; y < chromaHeight; y++) {
+        for (var x = 0; x < chromaWidth; x++) {
+          final sourceOffset =
+              y * uvPlane.bytesPerRow + x * (uvPlane.bytesPerPixel ?? 2);
+          if (sourceOffset < 0 || sourceOffset + 1 >= uvPlane.bytes.length) {
+            throw const FormatException('Invalid bi-planar YUV420 buffer.');
+          }
+          final targetOffset = chromaStart + y * frame.width + x * 2;
+          output[targetOffset] = uvPlane.bytes[sourceOffset + 1];
+          output[targetOffset + 1] = uvPlane.bytes[sourceOffset];
+        }
+      }
+    } else {
+      final uPlane = frame.planes[1];
+      final vPlane = frame.planes[2];
+      for (var y = 0; y < chromaHeight; y++) {
+        for (var x = 0; x < chromaWidth; x++) {
+          final targetOffset = chromaStart + y * frame.width + x * 2;
+          output[targetOffset] = _samplePlane(
+            vPlane,
+            row: y,
+            column: x,
+            fallbackPixelStride: 1,
+          );
+          output[targetOffset + 1] = _samplePlane(
+            uPlane,
+            row: y,
+            column: x,
+            fallbackPixelStride: 1,
+          );
+        }
+      }
+    }
+
+    return output;
+  }
+
+  static int _samplePlane(
+    Plane plane, {
+    required int row,
+    required int column,
+    required int fallbackPixelStride,
+  }) {
+    final offset =
+        row * plane.bytesPerRow +
+        column * (plane.bytesPerPixel ?? fallbackPixelStride);
+    if (offset < 0 || offset >= plane.bytes.length) {
+      throw const FormatException('Invalid camera image plane stride.');
+    }
+    return plane.bytes[offset];
   }
 
   static void _validateDimensions(int width, int height) {

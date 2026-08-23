@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -299,8 +299,23 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
           _error = error.message;
         });
       }
-    } catch (_) {
+    } on FormatException catch (error, stackTrace) {
       _rollbackCaptureAttempt(checkpoint);
+      debugPrint('[FaceID] Không thể chuyển đổi khung hình: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted && generation == _captureGeneration) {
+        setState(() {
+          _capturing = false;
+          _countdown = null;
+          _capturedFrameProgress = 0;
+          _error =
+              'Camera chưa tạo được khung hình tương thích. Hãy đóng camera và thử lại.';
+        });
+      }
+    } catch (error, stackTrace) {
+      _rollbackCaptureAttempt(checkpoint);
+      debugPrint('[FaceID] Không thể ghi nhận ảnh: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted && generation == _captureGeneration) {
         setState(() {
           _capturing = false;
@@ -409,7 +424,13 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen>
     _ensureCaptureIsActive(generation, controller);
     final jpegFrames = <Uint8List>[];
     for (final rawFrame in rawFrames) {
-      jpegFrames.add(await Isolate.run(() => rawFrame.encodeJpeg()));
+      jpegFrames.add(
+        await compute(
+          encodeSilentCameraFrame,
+          rawFrame,
+          debugLabel: 'Face ID JPEG encoder',
+        ),
+      );
     }
     return jpegFrames;
   }

@@ -1,11 +1,10 @@
-import 'dart:typed_data';
-
 import 'package:fintech_fe/features/face_id/data/silent_camera_frame.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image_lib;
 
 void main() {
-  test('encodes a padded BGRA preview frame as an oriented JPEG', () {
+  test('encodes a padded BGRA frame through the isolate worker', () async {
     const width = 4;
     const height = 2;
     const rowStride = 20;
@@ -21,13 +20,14 @@ void main() {
       }
     }
 
-    final jpeg = SilentCameraFrame.bgra8888(
+    final frame = SilentCameraFrame.bgra8888(
       width: width,
       height: height,
       rowStride: rowStride,
       rotationDegrees: 90,
       bytes: bytes,
-    ).encodeJpeg(quality: 100);
+    );
+    final jpeg = await compute(encodeSilentCameraFrame, frame);
     final decoded = image_lib.decodeJpg(jpeg);
 
     expect(jpeg.sublist(0, 3), [0xFF, 0xD8, 0xFF]);
