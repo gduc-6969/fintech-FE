@@ -53,7 +53,7 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _isLoggingOut = false;
   _TxState _txState = _TxState.loading;
 
-  String _userName = 'Loading...';
+  String _userName = 'Đang tải...';
   double? _balance;
   bool _isLoadingBalance = true;
 
@@ -72,7 +72,7 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   void initState() {
     super.initState();
-    _userName = ApiService.currentUserFullName ?? 'User';
+    _userName = ApiService.currentUserFullName ?? 'Người dùng';
     _fetchWallet();
     _fetchTransactions();
     _fetchLinkedBanks();
@@ -145,7 +145,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   } else if (dt.year == now.year && dt.month == now.month && dt.day == now.day - 1) {
                     formattedDate = 'Hôm qua';
                   } else {
-                    formattedDate = DateFormat('MMM d').format(dt);
+                    formattedDate = DateFormat('dd/MM').format(dt);
                   }
                 }
               } catch (_) {}
@@ -160,7 +160,7 @@ class _WalletScreenState extends State<WalletScreen> {
                  else isPositive = amount > 0;
               }
               
-              String label = typeStr;
+              String label = 'Giao dịch';
               if (type == _TxType.deposit) label = 'Nạp tiền';
               else if (type == _TxType.withdraw) label = 'Rút tiền';
               else if (type == _TxType.transfer) label = 'Chuyển tiền';
@@ -225,7 +225,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 } else if (dt.year == now.year && dt.month == now.month && dt.day == now.day - 1) {
                   formattedDate = 'Hôm qua';
                 } else {
-                  formattedDate = DateFormat('MMM d').format(dt);
+                  formattedDate = DateFormat('dd/MM').format(dt);
                 }
               }
             } catch (_) {}
@@ -239,7 +239,7 @@ class _WalletScreenState extends State<WalletScreen> {
                else isPositive = amount > 0;
             }
             
-            String label = typeStr;
+            String label = 'Giao dịch';
             if (type == _TxType.deposit) label = 'Nạp tiền';
             else if (type == _TxType.withdraw) label = 'Rút tiền';
             else if (type == _TxType.transfer) label = 'Chuyển tiền';
@@ -985,7 +985,11 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  tx.status.name.toUpperCase(),
+                  switch (tx.status) {
+                    _TxStatus.success => 'THÀNH CÔNG',
+                    _TxStatus.pending => 'ĐANG XỬ LÝ',
+                    _TxStatus.failed => 'THẤT BẠI',
+                  },
                   style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
                 ),
               ],

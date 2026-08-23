@@ -702,7 +702,7 @@ class ApiService {
     );
     if (response.data is Map<String, dynamic>) {
       final data = response.data as Map<String, dynamic>;
-      return data['fullName']?.toString() ?? 'Wallet User';
+      return data['fullName']?.toString() ?? 'Người nhận';
     }
     throw Exception('Invalid recipient lookup response');
   }

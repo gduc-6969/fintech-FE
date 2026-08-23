@@ -58,7 +58,7 @@ class Validators {
   /// - Numbers only, matching format.
   static String? validatePhone(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Phone number is required';
+      return 'Vui lòng nhập số điện thoại';
     }
 
     final phone = value.trim();
@@ -66,7 +66,7 @@ class Validators {
     final phoneRegex = RegExp(r'^(0\d{9}|\+84\d{9})$');
 
     if (!phoneRegex.hasMatch(phone)) {
-      return 'Invalid phone number format';
+      return 'Số điện thoại không đúng định dạng';
     }
     return null;
   }
@@ -79,27 +79,27 @@ class Validators {
   static List<String> checkPasswordCriteria(String password) {
     final errors = <String>[];
     if (password.length < 8) {
-      errors.add('At least 8 characters');
+      errors.add('Ít nhất 8 ký tự');
     }
     if (!password.contains(RegExp(r'[0-9]'))) {
-      errors.add('Contains a number');
+      errors.add('Chứa ít nhất một chữ số');
     }
     if (!password.contains(RegExp(r'[A-Z]'))) {
-      errors.add('Contains an uppercase letter');
+      errors.add('Chứa ít nhất một chữ in hoa');
     }
     if (!password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
-      errors.add('Contains a special character');
+      errors.add('Chứa ít nhất một ký tự đặc biệt');
     }
     return errors;
   }
 
   static String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Password is required';
+      return 'Vui lòng nhập mật khẩu';
     }
     final criteria = checkPasswordCriteria(value);
     if (criteria.isNotEmpty) {
-      return 'Password does not meet requirements';
+      return 'Mật khẩu chưa đáp ứng các yêu cầu';
     }
     return null;
   }
@@ -109,10 +109,10 @@ class Validators {
     String? confirmPassword,
   ) {
     if (confirmPassword == null || confirmPassword.isEmpty) {
-      return 'Confirm password is required';
+      return 'Vui lòng nhập lại mật khẩu';
     }
     if (password != confirmPassword) {
-      return 'Passwords do not match';
+      return 'Mật khẩu xác nhận không khớp';
     }
     return null;
   }
@@ -124,7 +124,7 @@ class Validators {
     final email = value.trim();
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
-      return 'Invalid email format';
+      return 'Email không đúng định dạng';
     }
     return null;
   }

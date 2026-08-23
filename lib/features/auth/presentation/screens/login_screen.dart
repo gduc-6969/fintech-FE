@@ -94,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 10),
             Semantics(
               image: true,
-              label: 'CMC logo',
+              label: 'Biểu trưng CMC',
               child: ExcludeSemantics(
                 child: Image.asset(
                   'assets/images/cmc_logo.png',

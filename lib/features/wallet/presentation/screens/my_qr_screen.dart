@@ -243,7 +243,8 @@ class _MyQrScreenState extends State<MyQrScreen> {
       } catch (_) {}
     }
 
-    final displayName = _fullName ?? ApiService.currentUserFullName ?? 'User';
+    final displayName =
+        _fullName ?? ApiService.currentUserFullName ?? 'Người dùng';
     final phone = _phoneNumber ?? ApiService.currentUserPhoneNumber ?? '';
     final initials = displayName.isNotEmpty
         ? displayName

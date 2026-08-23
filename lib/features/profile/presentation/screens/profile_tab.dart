@@ -682,7 +682,7 @@ class _TierBadge extends StatelessWidget {
         ? AppColors.indigo.withOpacity(0.12)
         : const Color(0xFFF59E0B).withOpacity(0.12);
     final Color fg = isAdult ? AppColors.indigo : const Color(0xFFB45309);
-    final String label = isAdult ? 'ADULT' : 'MINOR';
+    final String label = isAdult ? 'NGƯỜI LỚN' : 'VỊ THÀNH NIÊN';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

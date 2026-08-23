@@ -103,11 +103,11 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen>
 
   String _formatDateTime(String? raw) {
     if (raw == null || raw.isEmpty) {
-      return DateFormat('MMM dd, yyyy • HH:mm').format(DateTime.now());
+      return DateFormat('dd/MM/yyyy • HH:mm').format(DateTime.now());
     }
     try {
       final dt = DateTime.parse(raw).toLocal();
-      return DateFormat('MMM dd, yyyy • HH:mm').format(dt);
+      return DateFormat('dd/MM/yyyy • HH:mm').format(dt);
     } catch (_) {
       return raw;
     }

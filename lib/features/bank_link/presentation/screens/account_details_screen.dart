@@ -463,7 +463,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                     ),
                   ),
                   Text(
-                    _accountHolderName ?? 'UNKNOWN',
+                    _accountHolderName ?? 'CHƯA XÁC ĐỊNH',
                     style: GoogleFonts.dmSans(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

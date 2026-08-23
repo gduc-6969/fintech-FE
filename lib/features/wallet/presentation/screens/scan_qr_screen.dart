@@ -289,7 +289,7 @@ class _ScanQrScreenState extends State<ScanQrScreen>
               ),
               Expanded(
                 child: Text(
-                  'Scan QR',
+                  'Quét mã QR',
                   style: GoogleFonts.dmSans(
                     color: Colors.white,
                     fontSize: 17,

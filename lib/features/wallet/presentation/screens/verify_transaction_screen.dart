@@ -328,11 +328,11 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
   String get _typeLabel {
     switch (widget.data.type) {
       case TransactionType.deposit:
-        return 'Authorize deposit';
+        return 'Xác thực giao dịch nạp tiền';
       case TransactionType.withdraw:
-        return 'Authorize withdrawal';
+        return 'Xác thực giao dịch rút tiền';
       case TransactionType.transfer:
-        return 'Authorize transfer';
+        return 'Xác thực giao dịch chuyển tiền';
     }
   }
 
@@ -356,7 +356,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          'Verify Transaction',
+          'Xác thực giao dịch',
           style: GoogleFonts.dmSans(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
@@ -404,7 +404,9 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
                     color: AppColors.textSecondary,
                   ),
                   children: [
-                    const TextSpan(text: 'Confirm your identity to move '),
+                    const TextSpan(
+                      text: 'Xác minh danh tính để thực hiện giao dịch ',
+                    ),
                     TextSpan(
                       text: _formatCurrency(amount),
                       style: GoogleFonts.dmSans(
@@ -518,7 +520,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
                             ),
                           )
                         : Text(
-                            'Verify & Confirm',
+                            'Xác thực và xác nhận',
                             style: GoogleFonts.dmSans(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -537,7 +539,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      '$_attemptsRemaining verification attempt${_attemptsRemaining == 1 ? '' : 's'} remaining',
+                      'Còn $_attemptsRemaining lần xác thực',
                       style: GoogleFonts.dmSans(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -586,7 +588,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
             onTap: () => _switchTab(true),
           ),
           _toggleButton(
-            label: 'Email OTP',
+            label: 'OTP qua email',
             icon: Icons.email_outlined,
             selected: !_isPinTab,
             onTap: () => _switchTab(false),
@@ -654,7 +656,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
     return Column(
       children: [
         Text(
-          'ENTER TRANSACTION PIN',
+          'NHẬP MÃ PIN GIAO DỊCH',
           style: GoogleFonts.dmSans(
             fontSize: 11,
             fontWeight: FontWeight.w600,
@@ -679,7 +681,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
               ),
               const SizedBox(width: 6),
               Text(
-                _showPin ? 'Hide PIN' : 'Show PIN',
+                _showPin ? 'Ẩn mã PIN' : 'Hiện mã PIN',
                 style: GoogleFonts.dmSans(
                   fontSize: 13,
                   color: AppColors.textSecondary,
@@ -713,7 +715,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
               ),
               const SizedBox(width: 7),
               Text(
-                'Code sent to $_maskedEmail',
+                'Mã đã được gửi tới $_maskedEmail',
                 style: GoogleFonts.dmSans(
                   fontSize: 13,
                   color: AppColors.textSecondary,
@@ -862,7 +864,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Resend available in ${_countdown}s',
+            'Có thể gửi lại sau $_countdown giây',
             style: GoogleFonts.dmSans(
               fontSize: 13,
               color: AppColors.textSecondary,
@@ -875,7 +877,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
       return GestureDetector(
         onTap: _requestOtp,
         child: Text(
-          'Resend code',
+          'Gửi lại mã',
           style: GoogleFonts.dmSans(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -915,7 +917,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Verification locked',
+            'Đã khóa xác thực',
             style: GoogleFonts.dmSans(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -924,7 +926,7 @@ class _VerifyTransactionScreenState extends State<VerifyTransactionScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You have exceeded the maximum number of verification attempts. Please try again later or contact support.',
+            'Bạn đã vượt quá số lần xác thực cho phép. Vui lòng thử lại sau hoặc liên hệ bộ phận hỗ trợ.',
             textAlign: TextAlign.center,
             style: GoogleFonts.dmSans(
               fontSize: 13,

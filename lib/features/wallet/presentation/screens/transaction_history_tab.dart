@@ -75,7 +75,7 @@ class _TransactionHistoryTabState extends State<TransactionHistoryTab> {
     if (raw == null || raw.isEmpty) return '';
     try {
       final dt = DateTime.parse(raw).toLocal();
-      return DateFormat('MMM dd, yyyy • HH:mm').format(dt);
+      return DateFormat('dd/MM/yyyy • HH:mm').format(dt);
     } catch (_) {
       return raw;
     }
