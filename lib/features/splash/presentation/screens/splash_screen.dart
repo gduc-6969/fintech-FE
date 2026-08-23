@@ -112,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Center(
                 child: Semantics(
                   container: true,
-                  label: 'C-Walli. Your money, simplified. Đang khởi động.',
+                  label: 'C-Walli. Đang khởi động.',
                   child: ExcludeSemantics(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -167,28 +167,14 @@ class _SplashScreenState extends State<SplashScreen>
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 13),
+                              const SizedBox(height: 40),
                               _EntranceTransition(
                                 animation: _detailsEntrance,
                                 reduceMotion: reduceMotion,
                                 offset: 10,
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      'YOUR MONEY, SIMPLIFIED',
-                                      style: GoogleFonts.montserrat(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 1.8,
-                                        color: const Color(0xFFDCE5F2),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 27),
-                                    _LoadingDots(
-                                      animation: _ambientController,
-                                      reduceMotion: reduceMotion,
-                                    ),
-                                  ],
+                                child: _LoadingDots(
+                                  animation: _ambientController,
+                                  reduceMotion: reduceMotion,
                                 ),
                               ),
                             ],
