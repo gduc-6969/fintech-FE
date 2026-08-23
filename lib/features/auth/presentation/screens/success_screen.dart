@@ -173,25 +173,6 @@ class _SuccessScreenState extends State<_SuccessScreenContent>
                       text: 'Đi đến Đăng nhập',
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Back to OTP screen
-                  FadeUpAnimation(
-                    delayInMilliseconds: 400,
-                    child: TextButton(
-                      onPressed: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go(AppRouter.register);
-                        }
-                      },
-                      child: Text(
-                        'Quay lại màn hình OTP',
-                        style: AppTextStyles.linkText,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

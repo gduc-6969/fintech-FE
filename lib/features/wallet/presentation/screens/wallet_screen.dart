@@ -48,6 +48,9 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
+  static const Duration _pendingPollInterval = Duration(seconds: 5);
+  static const int _maxPendingPollAttempts = 6;
+
   int _activeNavIndex = 0;
   bool _balanceHidden = false;
   bool _isLoggingOut = false;
@@ -62,10 +65,11 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _isLoadingBanks = true;
 
   Timer? _pendingPollTimer;
+  int _pendingPollAttempts = 0;
 
   @override
   void dispose() {
-    _pendingPollTimer?.cancel();
+    _stopPendingPoll();
     super.dispose();
   }
 
@@ -182,17 +186,48 @@ class _WalletScreenState extends State<WalletScreen> {
     if (hasPending) {
       _startPendingPoll();
     } else {
-      _pendingPollTimer?.cancel();
+      _stopPendingPoll();
     }
   }
 
   void _startPendingPoll() {
-    if (_pendingPollTimer != null && _pendingPollTimer!.isActive) return;
-    _pendingPollTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
-      if (!mounted) { t.cancel(); return; }
-      await _fetchTransactionsSilent();
-      await _fetchWalletSilent();
-    });
+    if (_pendingPollTimer?.isActive ?? false) return;
+    _pendingPollAttempts = 0;
+    _schedulePendingPoll();
+  }
+
+  void _schedulePendingPoll() {
+    if (!mounted || _pendingPollAttempts >= _maxPendingPollAttempts) {
+      _pendingPollTimer = null;
+      return;
+    }
+    _pendingPollTimer = Timer(_pendingPollInterval, _pollPendingTransaction);
+  }
+
+  Future<void> _pollPendingTransaction() async {
+    _pendingPollTimer = null;
+    if (!mounted) return;
+
+    _pendingPollAttempts++;
+    await _fetchTransactionsSilent();
+    if (!mounted) return;
+    await _fetchWalletSilent();
+    if (!mounted) return;
+
+    final stillHasPending = _transactions.any(
+      (tx) => tx.status == _TxStatus.pending,
+    );
+    if (stillHasPending) {
+      _schedulePendingPoll();
+    } else {
+      _stopPendingPoll();
+    }
+  }
+
+  void _stopPendingPoll() {
+    _pendingPollTimer?.cancel();
+    _pendingPollTimer = null;
+    _pendingPollAttempts = 0;
   }
 
   Future<void> _fetchTransactionsSilent() async {
@@ -247,10 +282,6 @@ class _WalletScreenState extends State<WalletScreen> {
             return _MockTx(type, label, formattedDate, isPositive ? amount.abs() : -amount.abs(), status, tx);
           }).toList();
         });
-        final stillHasPending = _transactions.any((tx) => tx.status == _TxStatus.pending);
-        if (!stillHasPending) {
-          _pendingPollTimer?.cancel();
-        }
       }
     } catch (_) {}
   }
@@ -754,7 +785,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const Spacer(),
                 GestureDetector(
                   onTap: () {
-                    setState(() => _activeNavIndex = 2);
+                    setState(() => _activeNavIndex = 3);
                   },
                   child: Row(
                     children: [

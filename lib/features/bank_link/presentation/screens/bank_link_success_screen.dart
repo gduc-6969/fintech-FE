@@ -37,6 +37,11 @@ class _BankLinkSuccessScreenState extends State<BankLinkSuccessScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final holder = widget.bank['holder']?.toString().trim();
+    final holderName = holder == null || holder.isEmpty
+        ? 'CHƯA XÁC ĐỊNH'
+        : holder;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -110,7 +115,7 @@ class _BankLinkSuccessScreenState extends State<BankLinkSuccessScreen> with Sing
                           children: [
                             Text(widget.bank['name'], style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                             const SizedBox(height: 4),
-                            Text('LE HAI DUC', style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                            Text(holderName, style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),

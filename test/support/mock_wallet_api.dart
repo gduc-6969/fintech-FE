@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:fintech_fe/core/services/api_service.dart';
 
-enum MockWalletApiState { loaded, empty, error }
+enum MockWalletApiState { loaded, empty, pending, error }
 
 class MockWalletApiSession {
   MockWalletApiSession._({
@@ -85,9 +85,11 @@ class MockWalletApiAdapter implements HttpClientAdapter {
         'currency': 'VND',
       },
       '/private/api/v1/wallet/transactions/search' => <String, dynamic>{
-        'content': state == MockWalletApiState.empty
-            ? <dynamic>[]
-            : _transactions,
+        'content': switch (state) {
+          MockWalletApiState.empty => <dynamic>[],
+          MockWalletApiState.pending => _pendingTransactions,
+          _ => _transactions,
+        },
       },
       '/private/api/v1/wallet/bank-accounts' =>
         state == MockWalletApiState.empty ? <dynamic>[] : _linkedBanks,
@@ -196,6 +198,18 @@ const List<Map<String, dynamic>> _transactions = <Map<String, dynamic>>[
     'counterpartyFullName': 'Tran Gia Bao',
     'counterpartyPhoneNumber': '0987654321',
     'referenceCode': 'MOCK-TRANSFER-001',
+  },
+];
+
+const List<Map<String, dynamic>> _pendingTransactions = <Map<String, dynamic>>[
+  <String, dynamic>{
+    'id': 'mock-tx-pending-001',
+    'type': 'WALLET_TRANSFER_OUT',
+    'status': 'PENDING',
+    'amount': 750000,
+    'updatedAt': '2026-08-23T09:30:00Z',
+    'createdAt': '2026-08-23T09:30:00Z',
+    'referenceCode': 'MOCK-PENDING-001',
   },
 ];
 

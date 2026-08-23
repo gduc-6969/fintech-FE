@@ -528,7 +528,7 @@ class _ProfileTabState extends State<ProfileTab> {
             icon: Icons.credit_card_outlined,
             label: 'Tài khoản ngân hàng',
             subtitle: 'Quản lý tài khoản liên kết',
-            onTap: () => widget.onSwitchTab(2), // Cards tab
+            onTap: () => widget.onSwitchTab(3), // Bank accounts tab
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _securityRow(
