@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../core/utils/validators.dart';
 import '../widgets/auth_layout.dart';
 import '../widgets/fade_up_animation.dart';
 import '../widgets/gradient_button.dart';
@@ -188,18 +190,17 @@ class _RegisterIdentityScreenState extends State<RegisterIdentityScreen> {
                     TextFormField(
                       controller: _identityNumberController,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(12),
+                      ],
                       autovalidateMode: AutovalidateMode.onUserInteraction,
-                      maxLength: 50,
+                      maxLength: 12,
                       decoration: const InputDecoration(
                         hintText: 'Số CMND / CCCD',
                         counterText: '',
                       ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Vui lòng nhập số CMND/CCCD';
-                        }
-                        return null;
-                      },
+                      validator: Validators.validateCitizenId,
                     ),
                   ],
                 ),

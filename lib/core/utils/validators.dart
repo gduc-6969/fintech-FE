@@ -145,4 +145,21 @@ class Validators {
     }
     return null;
   }
+
+  /// Validates citizen identity number (CMND / CCCD):
+  /// - Must not be empty.
+  /// - Must contain exactly 12 numeric digits.
+  static String? validateCitizenId(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng nhập số CMND/CCCD';
+    }
+    final id = value.trim();
+    if (!RegExp(r'^\d+$').hasMatch(id)) {
+      return 'Số CMND/CCCD chỉ được chứa chữ số';
+    }
+    if (id.length != 12) {
+      return 'Số CMND/CCCD phải có đúng 12 chữ số';
+    }
+    return null;
+  }
 }
