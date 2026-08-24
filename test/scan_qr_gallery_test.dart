@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:dio/dio.dart';
 import 'package:fintech_fe/core/services/api_service.dart';
 import 'package:fintech_fe/features/wallet/presentation/screens/scan_qr_screen.dart';
 import 'package:flutter/material.dart';
