@@ -7,7 +7,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Ứng dụng cần camera để quét mã QR và chụp khuôn mặt phục vụ xác minh danh tính, bảo vệ giao dịch giá trị cao.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập thư viện ảnh để lưu mã QR của bạn.</string>
+	<string>Ứng dụng cần quyền truy cập thư viện ảnh để quét và lưu mã QR.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Ứng dụng cần quyền lưu ảnh vào thư viện để lưu mã QR của bạn.</string>
 	<key>CFBundleDevelopmentRegion</key>

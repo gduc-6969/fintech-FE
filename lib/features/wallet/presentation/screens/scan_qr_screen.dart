@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:dio/dio.dart';
@@ -13,7 +14,14 @@ const double _kReticleSize = 270.0;
 const double _kReticleRadius = 8.0;
 
 class ScanQrScreen extends StatefulWidget {
-  const ScanQrScreen({super.key});
+  final ImagePicker? imagePicker;
+  final Future<BarcodeCapture?> Function(String path)? imageAnalyzer;
+
+  const ScanQrScreen({
+    super.key,
+    this.imagePicker,
+    this.imageAnalyzer,
+  });
 
   @override
   State<ScanQrScreen> createState() => _ScanQrScreenState();
@@ -84,6 +92,105 @@ class _ScanQrScreenState extends State<ScanQrScreen>
       detectionSpeed: DetectionSpeed.noDuplicates,
       returnImage: false,
     );
+  }
+
+  // ── Gallery QR Pick & Scan ──────────────────────────────────────────────────
+
+  Future<void> _pickAndScanFromGallery() async {
+    if (_isProcessing) return;
+
+    try {
+      final picker = widget.imagePicker ?? ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+      );
+      if (image == null) return;
+
+      setState(() {
+        _isProcessing = true;
+      });
+
+      BarcodeCapture? capture;
+      if (widget.imageAnalyzer != null) {
+        capture = await widget.imageAnalyzer!(image.path);
+      } else {
+        final controller = _controller ?? MobileScannerController();
+        try {
+          capture = await controller.analyzeImage(image.path);
+        } finally {
+          if (_controller == null) {
+            controller.dispose();
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      final barcodes = capture?.barcodes;
+      if (barcodes == null || barcodes.isEmpty) {
+        setState(() => _isProcessing = false);
+        _showInvalidCodeSheet(
+          message: 'Không tìm thấy mã QR trong hình ảnh đã chọn.',
+        );
+        return;
+      }
+
+      final raw = barcodes.first.rawValue;
+      if (raw == null || raw.isEmpty) {
+        setState(() => _isProcessing = false);
+        _showInvalidCodeSheet(message: 'Không thể đọc nội dung mã QR.');
+        return;
+      }
+
+      _controller?.stop();
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _hasScanned = true;
+      });
+      await _decodeQrContent(raw);
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      if (e.code == 'photo_access_denied' ||
+          e.code == 'camera_access_denied' ||
+          e.code == 'permission_denied') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Cần quyền truy cập thư viện ảnh để chọn mã QR.',
+              style: GoogleFonts.dmSans(),
+            ),
+            action: SnackBarAction(
+              label: 'Cài đặt',
+              onPressed: openAppSettings,
+            ),
+            backgroundColor: AppColors.primaryNavy,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Không thể mở thư viện ảnh. Vui lòng thử lại.',
+              style: GoogleFonts.dmSans(),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Đã xảy ra lỗi khi chọn ảnh.',
+            style: GoogleFonts.dmSans(),
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   // ── Scan window: compute Rect from screen size ─────────────────────────────
@@ -176,7 +283,15 @@ class _ScanQrScreenState extends State<ScanQrScreen>
           if (mounted) context.push('/my-qr');
         },
       ),
-    );
+    ).whenComplete(() {
+      if (mounted && (_hasScanned || _isProcessing)) {
+        setState(() {
+          _hasScanned = false;
+          _isProcessing = false;
+        });
+        _controller?.start();
+      }
+    });
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -363,7 +478,7 @@ class _ScanQrScreenState extends State<ScanQrScreen>
                 child: _PillButton(
                   icon: Icons.image_outlined,
                   label: 'Tải từ thư viện',
-                  onTap: () {/* gallery picker — future */},
+                  onTap: _pickAndScanFromGallery,
                 ),
               ),
               const SizedBox(width: 12),
@@ -429,6 +544,21 @@ class _ScanQrScreenState extends State<ScanQrScreen>
                 },
                 child: Text('Mở Cài đặt',
                     style: GoogleFonts.dmSans(color: Colors.white)),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white24),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _pickAndScanFromGallery,
+                icon: const Icon(Icons.image_outlined, size: 18),
+                label: Text('Tải từ thư viện',
+                    style: GoogleFonts.dmSans(fontSize: 14)),
               ),
             ],
           ),
