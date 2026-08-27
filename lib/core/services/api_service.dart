@@ -163,9 +163,9 @@ class ApiService {
         LogInterceptor(
           request: true,
           requestHeader: false,
-          requestBody: false,
+          requestBody: true,
           responseHeader: false,
-          responseBody: false,
+          responseBody: true,
           error: true,
           logPrint: (object) => debugPrint('[API] $object'),
         ),
@@ -595,6 +595,11 @@ class ApiService {
   /// Returns the backend error-code string (e.g. 'INVALID_PIN', 'PIN_LOCKED').
   static String? parseErrorCode(DioException exception) {
     return UiErrorMapper.errorCode(exception);
+  }
+
+  /// Returns the backend error details map if available.
+  static Map<String, dynamic>? parseErrorDetails(DioException exception) {
+    return UiErrorMapper.errorDetails(exception);
   }
 
   // ── Transaction APIs ──────────────────────────────────────────────────────

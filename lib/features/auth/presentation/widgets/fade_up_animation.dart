@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 class FadeUpAnimation extends StatefulWidget {
@@ -18,6 +19,7 @@ class _FadeUpAnimationState extends State<FadeUpAnimation> with SingleTickerProv
   late AnimationController _controller;
   late Animation<double> _opacityAnimation;
   late Animation<Offset> _slideAnimation;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -37,7 +39,7 @@ class _FadeUpAnimationState extends State<FadeUpAnimation> with SingleTickerProv
     );
 
     if (widget.delayInMilliseconds > 0) {
-      Future.delayed(Duration(milliseconds: widget.delayInMilliseconds), () {
+      _timer = Timer(Duration(milliseconds: widget.delayInMilliseconds), () {
         if (mounted) _controller.forward();
       });
     } else {
@@ -47,6 +49,7 @@ class _FadeUpAnimationState extends State<FadeUpAnimation> with SingleTickerProv
 
   @override
   void dispose() {
+    _timer?.cancel();
     _controller.dispose();
     super.dispose();
   }

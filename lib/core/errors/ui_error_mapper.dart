@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 
 /// Converts API/network failures into safe, localized messages for the UI.
@@ -115,13 +116,41 @@ class UiErrorMapper {
         'Hệ thống đang tạm thời gián đoạn. Vui lòng thử lại sau.',
   };
 
-  static String? errorCode(DioException exception) {
-    final data = exception.response?.data;
-    if (data is! Map) return null;
+  static Map<String, dynamic>? _extractDataMap(DioException exception) {
+    var data = exception.response?.data;
+    if (data is String) {
+      final trimmed = data.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is Map) {
+            return Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {}
+      }
+    } else if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return null;
+  }
 
-    final rawCode = data['error'] ?? data['code'];
+  static String? errorCode(DioException exception) {
+    final data = _extractDataMap(exception);
+    if (data == null) return null;
+
+    final rawCode = data['error'] ?? data['code'] ?? data['errorCode'];
     final code = rawCode?.toString().trim().toUpperCase();
     return code == null || code.isEmpty ? null : code;
+  }
+
+  static Map<String, dynamic>? errorDetails(DioException exception) {
+    final data = _extractDataMap(exception);
+    if (data == null) return null;
+    final details = data['details'];
+    if (details is Map) {
+      return Map<String, dynamic>.from(details);
+    }
+    return null;
   }
 
   static String fromDio(
